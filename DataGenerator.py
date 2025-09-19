@@ -40,6 +40,9 @@ df = pd.DataFrame({
 
 print(df.head())
 
+# Save to CSV
+df.to_csv('cat_cafe_dataset.csv', index=False)
+
 
 
 
