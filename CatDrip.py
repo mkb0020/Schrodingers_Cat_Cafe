@@ -121,7 +121,7 @@ class DrippyKit:
         self.Thicc(self.ws, 1, LastRow, 1, LastColumn)
 
     def ColumnWidths(self):
-        for col in ["A", "B", "C", "D", "E", "F", "G"]:
+        for col in ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]:
             self.ws.column_dimensions[col].width = 16
 
     def drip(self):
