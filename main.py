@@ -5,6 +5,11 @@ import io
 import tkinter as tk
 import subprocess
 import re
+import tempfile
+import matplotlib.pyplot as plt
+from openpyxl.drawing.image import Image as XLImage
+import numpy as np
+from io import BytesIO
 from tkinter import Tk, Label, Entry, Button, filedialog, simpledialog, messagebox, ttk
 from tkinter import *
 from datetime import datetime
@@ -18,7 +23,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_squared_error
 
 #---------------------------- CLASSES TO COLLECT INFO, CLEAN DATA, AND GET THE HEADERS ---------------------------- 
-DF_HEADERS = [
+DATA_DF_HEADERS = [
     "BoxTemp",
     "Photons",
     "Entanglement",
@@ -48,18 +53,40 @@ DATA_TAB_HEADERS = {
     "Material": "BOX\nMATERIAL"
     }
 
-REGRESSION_HEADERS = {
-    'BoxTemp', 
-    'Photons', 
-    'Entanglement',                
-    'Observer', 
-    'DecayRate', 
-    'Stability', 
-    'Material'
+RegresionMap = {
+    "BoxTemp|BOX TEMP\n(Celsius)|Box Temperature (Â°C)|Box Temperature (°C)": "BoxTemp",
+    "Photons|Photon Count per Minute|PHOTON COUNT\n(per  minute)": "Photons",
+    "Entanglement|Quantum Entanglement Index|ENTANGLEMENT\nINDEX": "Entanglement",
+    "Observer|Observer Presence|OBSERVER\nPRESENT?": "Observer",
+    "DecayRate|Radioactive Decay Rate|RADIOACTIVE\nDECAY RATE": "DecayRate",
+    "Stability|Wavefunction Stability|WAVEFUNCTION\nSTABILITY": "Stability",
+    "Material|Box Material|BOX\nMATERIAL": "Material",
+    "MoodScore": "MoodScore",
+    "SassIndex": "SassIndex",
+    "SurvivalRate": "SurvivalRate"
     }
 
-#Clean Data
-class PurrfectData:
+REGRESSION_HEADERS = {}
+for variants, canonical in RegresionMap.items():
+    for variant in variants.split("|"):
+        REGRESSION_HEADERS[variant.strip()] = canonical
+
+REGRESSION_TAB_HEADERS = {
+    "BoxTemp":"BOX TEMP\n(Celsius)", 
+    "Photons": "PHOTON COUNT\n(per  minute)", 
+    "Entanglement": "ENTANGLEMENT\nINDEX", 
+    "Observer": "OBSERVER\nPRESENT?", 
+    "DecayRate": "RADIOACTIVE\nDECAY RATE", 
+    "Stability": "WAVEFUNCTION\nSTABILITY", 
+    "Material": "BOX\nMATERIAL",
+    "MoodScore": "MOOD\nSCORE",
+    "SassIndex": "SASS\nINDEX",
+    "SurvivalRate": "SURVIVAL\nRATE"
+    }
+
+#---------------------------- DATA/INFO CLASSES ---------------------------- 
+
+class PurrfectData: #Clean Data
     def __init__(self, df, InputHeaders, DFHeaders, OutputHeaders):
         self.df = df.copy()
         self.InputHeaders = InputHeaders
@@ -254,17 +281,38 @@ class QuantumCafeModel:
         else:
             print("This model does not provide coefficients.")
 
-#---------------------------- CREATE THE INITIAL WORKBOOK AND DF ----------------------------
+#---------------------------- GET INPUT AND DATA ----------------------------
 #UserInfo = GetInfo.GetUserInfo()
 #InputFile = GetInfo.GetInputFile()
 InputFile = "cat_cafe_dataset.csv"
 Purr = PurrfectData(
     df = GetInfo.GetDF(InputFile),
-    DFHeaders=DF_HEADERS,
+    DFHeaders=DATA_DF_HEADERS,
     InputHeaders=INPUT_HEADERS,
     OutputHeaders=DATA_TAB_HEADERS
 )
 DataDF = Purr.groom()
+
+
+#---------------------------- REGRESSION DATA FRAME ---------------------------- 
+
+UpdateDataDF = DataDF
+UpdateDataDF["MoodScore"] = np.random.uniform(0, 1, len(UpdateDataDF))
+UpdateDataDF["SassIndex"] = np.random.randint(0, 10, len(UpdateDataDF))
+UpdateDataDF["SurvivalRate"] = np.random.normal(loc=0.8, scale=0.1, size=len(UpdateDataDF)).clip(0, 1)
+
+
+missing = [col for col in REGRESSION_HEADERS if col not in UpdateDataDF.columns]
+if missing:
+    print("Missing columns:", missing)
+
+
+RegressionDF = UpdateDataDF.rename(columns=REGRESSION_HEADERS)
+CatWhisperer = QuantumCafeModel(RegressionDF) # Initialize with dataframe
+CatWhisperer.train("MoodScore") # Train for MoodScore
+CatWhisperer.train("SurvivalRate") # Train for SurvivalRate
+CatWhisperer.train("SassIndex") # Train for SassIndex
+CatWhisperer.feature_importance("MoodScore") # Look at feature influence for MoodScore
 
 #OutputFileName = GetInfo.GetSavePath(UserInfo)
 OutputFileName = "output.xlsx"
@@ -273,7 +321,19 @@ if not OutputFileName:
 
 #df.to_excel('OutputFileName.xlsx', index=False)
 with pd.ExcelWriter(OutputFileName, engine="openpyxl") as writer:
+    RegressionDF.to_excel(writer, sheet_name="CAT_REGRESSION", index=False)
     DataDF.to_excel(writer, sheet_name="CAT_DATA", index=False)
+    
+drip = DrippyKit(filepath=OutputFileName, sheet_name="CAT_REGRESSION")
+HeaderRow = next(drip.ws.iter_rows(min_row=1, max_row=1))
+LastColumn = drip.ws.max_column + 1
+FirstItemsRow = 2  # Just use the row number
+LastRow = drip.ws.max_row
+drip.HeaderLewk()
+drip.ItemsLewk()
+drip.ColumnWidths()
+drip.ThiccBorder()
+drip.wb.save(OutputFileName)
 
 drip = DrippyKit(filepath=OutputFileName, sheet_name="CAT_DATA")
 HeaderRow = next(drip.ws.iter_rows(min_row=1, max_row=1))
@@ -292,22 +352,53 @@ wb.save(OutputFileName)
 print(f"DONE")
 #print("DataFrame Headers:", list(DataDF.columns))
 wb = load_workbook(OutputFileName) # Load Excel back in with openpyxl
-ws = wb["CAT_DATA"]
-excel_headers = [cell.value for cell in ws[1]]  # First row is headers
+wsREGRESSION = wb["CAT_REGRESSION"]
+excel_regression_headers = [cell.value for cell in wsREGRESSION[1]]
+wsDATA = wb["CAT_DATA"]
+excel_data_headers = [cell.value for cell in wsDATA[1]]  # First row is headers
+
 #print("Excel Headers:", excel_headers)
+#---------------------------- REGRESSION MODELING - SCATTER PLOT ---------------------------- 
+if "SURVIVAL_SCATTER_PLOTS" not in OutputFileName:
+    wsSurvivalScatterPlots = wb.create_sheet("SURVIVAL_SCATTER_PLOTS")
+else:
+    wsSurvivalScatterPlots = wb["SURVIVAL_SCATTER_PLOTS"]
 
+features = ["BoxTemp", "Photons", "Entanglement", "Observer", "DecayRate", "Stability", "Material", "MoodScore", "SassIndex"]
+target = "SurvivalRate"
+row = 1
+temp_files = []
 
-#---------------------------- REGRESSION MODELING ---------------------------- 
-#RegressionDF = DataDF.rename(columns=REGRESSION_HEADERS)
-#CatWhisperer = QuantumCafeModel(RegressionDF) # Initialize with dataframe
-#CatWhisperer.train("MoodScore") # Train for MoodScore
-#CatWhisperer.train("SurvivalRate") # Train for SurvivalRate
-#CatWhisperer.train("SassIndex") # Train for SassIndex
-#CatWhisperer.feature_importance("MoodScore") # Look at feature influence for MoodScore
+for feature in features:
+    if feature in RegressionDF.columns:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.scatter(RegressionDF[feature], RegressionDF[target], alpha=0.6, color="#4B1395")
+        ax.set_title(f"{feature} vs {target}")
+        ax.set_xlabel(feature)
+        ax.set_ylabel(target)
+        ax.grid(True)
+        plt.tight_layout()
 
+        tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        tmp_path = tmp.name
+        tmp.close() 
+        plt.savefig(tmp.name)
+        plt.close(fig)
+        temp_files.append(tmp.name)
 
+        img = XLImage(tmp.name)
+        wsSurvivalScatterPlots.add_image(img, f"A{row}")
+        row += 20
 
+wb.save(OutputFileName) # Save workbook before cleanup
 
+for path in temp_files: #  delete temp files
+    os.remove(path)
+
+#---------------------------- RENAME REGRESSION HEADERS FOR OUTPUT WORKBOOK ---------------------------- 
+wb = load_workbook(OutputFileName)
+RegressionDF = RegressionDF.rename(columns=REGRESSION_TAB_HEADERS)
+wb.save(OutputFileName)
 #---------------------------- END MESSAGE ---------------------------- 
 def show_completion_popup(OutputFileName):
     def open_file():
@@ -316,15 +407,13 @@ def show_completion_popup(OutputFileName):
         except AttributeError:
             subprocess.call(["open", OutputFileName])  # macOS fallback
         popup.destroy()
-        sys.exit(0)
 
     def close_popup():
         popup.destroy()
-        sys.exit(0)
 
     popup = tk.Tk()
     popup.title("Purrrrrfect!")
-    popup.geometry("420x160")
+    popup.geometry("500x250")
     popup.configure(bg="#C2CAE8")
 
     label = tk.Label(
@@ -339,13 +428,19 @@ def show_completion_popup(OutputFileName):
     label.pack(pady=10)
 
     button_frame = tk.Frame(popup, bg="#C2CAE8")
+
+    print("Packing button frame…")
     button_frame.pack(pady=5)
 
     tk.Button(button_frame, text="View File", command=open_file, bg="#CBCEDF", font=("Arial", 10)).pack(side="left", padx=10)
     tk.Button(button_frame, text="OK", command=close_popup, bg="#CBCEDF", font=("Arial", 10)).pack(side="right", padx=10)
 
     popup.eval('tk::PlaceWindow . center')
+    popup.update_idletasks()
     popup.mainloop()
 
 OutputFileName = os.path.abspath(OutputFileName)
 show_completion_popup(OutputFileName)
+
+
+
