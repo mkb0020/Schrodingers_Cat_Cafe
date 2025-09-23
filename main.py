@@ -21,6 +21,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_squared_error
+import seaborn as sns
 
 #---------------------------- CLASSES TO COLLECT INFO, CLEAN DATA, AND GET THE HEADERS ---------------------------- 
 DATA_DF_HEADERS = [
@@ -322,7 +323,7 @@ if not OutputFileName:
 #df.to_excel('OutputFileName.xlsx', index=False)
 with pd.ExcelWriter(OutputFileName, engine="openpyxl") as writer:
     RegressionDF.to_excel(writer, sheet_name="CAT_REGRESSION", index=False)
-    DataDF.to_excel(writer, sheet_name="CAT_DATA", index=False)
+    #DataDF.to_excel(writer, sheet_name="CAT_DATA", index=False)
     
 drip = DrippyKit(filepath=OutputFileName, sheet_name="CAT_REGRESSION")
 HeaderRow = next(drip.ws.iter_rows(min_row=1, max_row=1))
@@ -335,16 +336,16 @@ drip.ColumnWidths()
 drip.ThiccBorder()
 drip.wb.save(OutputFileName)
 
-drip = DrippyKit(filepath=OutputFileName, sheet_name="CAT_DATA")
-HeaderRow = next(drip.ws.iter_rows(min_row=1, max_row=1))
-LastColumn = drip.ws.max_column + 1
-FirstItemsRow = 2  # Just use the row number
-LastRow = drip.ws.max_row
-drip.HeaderLewk()
-drip.ItemsLewk()
-drip.ColumnWidths()
-drip.ThiccBorder()
-drip.wb.save(OutputFileName)
+#drip = DrippyKit(filepath=OutputFileName, sheet_name="CAT_DATA")
+#HeaderRow = next(drip.ws.iter_rows(min_row=1, max_row=1))
+#LastColumn = drip.ws.max_column + 1
+#FirstItemsRow = 2  # Just use the row number
+#LastRow = drip.ws.max_row
+#drip.HeaderLewk()
+#drip.ItemsLewk()
+#drip.ColumnWidths()
+#drip.ThiccBorder()
+#drip.wb.save(OutputFileName)
 
 #---------------------------- SAVE ----------------------------
 wb = load_workbook(OutputFileName)
@@ -354,46 +355,186 @@ print(f"DONE")
 wb = load_workbook(OutputFileName) # Load Excel back in with openpyxl
 wsREGRESSION = wb["CAT_REGRESSION"]
 excel_regression_headers = [cell.value for cell in wsREGRESSION[1]]
-wsDATA = wb["CAT_DATA"]
-excel_data_headers = [cell.value for cell in wsDATA[1]]  # First row is headers
+#wsDATA = wb["CAT_DATA"]
+#excel_data_headers = [cell.value for cell in wsDATA[1]]  # First row is headers
 
 #print("Excel Headers:", excel_headers)
-#---------------------------- REGRESSION MODELING - SCATTER PLOT ---------------------------- 
-if "SURVIVAL_SCATTER_PLOTS" not in OutputFileName:
-    wsSurvivalScatterPlots = wb.create_sheet("SURVIVAL_SCATTER_PLOTS")
+#----------------------------  ADD SHEETS ---------------------------- 
+if "SCATTER_PLOTS" not in OutputFileName:
+    wsScatterPlots = wb.create_sheet("SCATTER_PLOTS")
 else:
-    wsSurvivalScatterPlots = wb["SURVIVAL_SCATTER_PLOTS"]
+    wsScatterPlots = wb["SCATTER_PLOTS"]
 
-features = ["BoxTemp", "Photons", "Entanglement", "Observer", "DecayRate", "Stability", "Material", "MoodScore", "SassIndex"]
-target = "SurvivalRate"
+
+
+
+#if "SASS_REGRESSION" not in wb.sheetnames:
+#    wsSass = wb.create_sheet("SASS_REGRESSION")
+#else:
+#    wsSass = wb["SASS_REGRESSION"]
+
+#if "ALIVE_REGRESSION" not in wb.sheetnames:
+    #wsAlive = wb.create_sheet("ALIVE_REGRESSION")
+#else:
+ #   wsAlive = wb["ALIVE_REGRESSION"]
+
+
+#----------------------------  MODELING - SCATTER PLOTS ---------------------------- 
+
+
+# Adjust column widths so plots have breathing room
+wsScatterPlots.column_dimensions["A"].width = 50
+wsScatterPlots.column_dimensions["B"].width = 3
+wsScatterPlots.column_dimensions["C"].width = 50
+wsScatterPlots.column_dimensions["D"].width = 3
+wsScatterPlots.column_dimensions["E"].width = 50
+
+QuantumFeatures = ["BoxTemp", "Photons", "Entanglement", "Observer", "DecayRate", "Stability", "Material"]
+QuantumTargets = ["MoodScore", "SassIndex", "SurvivalRate"]
 row = 1
 temp_files = []
+# Column mapping for each target
+col_map = {
+    "MoodScore": "A",      # First strip
+    "SassIndex": "C",      # Skip one column
+    "SurvivalRate": "E"    # Skip again
+}
 
-for feature in features:
-    if feature in RegressionDF.columns:
-        fig, ax = plt.subplots(figsize=(6, 4))
-        ax.scatter(RegressionDF[feature], RegressionDF[target], alpha=0.6, color="#4B1395")
-        ax.set_title(f"{feature} vs {target}")
-        ax.set_xlabel(feature)
-        ax.set_ylabel(target)
-        ax.grid(True)
-        plt.tight_layout()
+row_map = {"MoodScore": 1, "SassIndex": 1, "SurvivalRate": 1}  # Track row per target
 
-        tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-        tmp_path = tmp.name
-        tmp.close() 
-        plt.savefig(tmp.name)
-        plt.close(fig)
-        temp_files.append(tmp.name)
+for target in QuantumTargets:
+    for feature in QuantumFeatures:
+        if feature in RegressionDF.columns:
+            if feature == "Material":
+                fig, ax = plt.subplots(figsize=(3.75, 3.5))
+            else:
+                fig, ax = plt.subplots(figsize=(3.75, 2.5))
+            ax.scatter(RegressionDF[feature], RegressionDF[target], alpha=0.5, color="#4B1395", s=15)
+            ax.set_title(f"{feature} vs {target}")
+            ax.set_xlabel(feature)
+            ax.set_ylabel(target)
+            if feature == "Material":
+                plt.setp(ax.get_xticklabels(), rotation=45, ha="right", fontsize=8)
+            ax.grid(True)
+            plt.tight_layout()
 
-        img = XLImage(tmp.name)
-        wsSurvivalScatterPlots.add_image(img, f"A{row}")
-        row += 20
+            # Save image to temp file
+            tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+            tmp_path = tmp.name
+            tmp.close()
+            plt.savefig(tmp_path)
+            plt.close(fig)
+            temp_files.append(tmp_path)
+
+            # Place image in Excel at the correct column/row
+            img = XLImage(tmp_path)
+            col = col_map[target]
+            row = row_map[target]
+            wsScatterPlots.add_image(img, f"{col}{row}")
+
+            # Move down for the next feature plot of this target
+            row_map[target] += 13
+
+
 
 wb.save(OutputFileName) # Save workbook before cleanup
 
 for path in temp_files: #  delete temp files
     os.remove(path)
+
+
+#----------------------------  MODELING - MOOD SCORE REGRESSION---------------------------- 
+wb = load_workbook(OutputFileName)
+
+if "MOOD_REGRESSION" not in wb.sheetnames:
+    wsMood = wb.create_sheet("MOOD_REGRESSION")
+else:
+    wsMood = wb["MOOD_REGRESSION"]
+
+wsMood.column_dimensions["A"].width = 25
+wsMood.column_dimensions["B"].width = 25
+
+
+
+target = "MoodScore"
+model, (r2, mse) = CatWhisperer.train(target)
+
+# Encode features so we know what order they’re in
+X = CatWhisperer.encode_features()
+feature_names = X.columns
+
+# Extract coefficients
+coefs = pd.Series(model.coef_, index=feature_names).sort_values(ascending=False)
+
+# Headers
+wsMood["A1"] = "FEATURE"
+wsMood["B1"] = "IMPORTANCE"
+
+# Write coefficients
+row = 2
+for feat, imp in coefs.items():
+    wsMood[f"A{row}"] = feat
+    wsMood[f"B{row}"] = round(float(imp), 3)
+    row += 1
+
+
+row = 13
+temp_files = []
+
+for feature in X.columns:
+    fig, ax = plt.subplots(figsize=(6,4))
+    
+    # Scatter points
+    ax.scatter(X[feature], RegressionDF[target], alpha=0.6, color="#4B1395", s=15)
+    
+    # Fit regression line
+    lr = LinearRegression()
+    lr.fit(X[[feature]], RegressionDF[target])
+    x_vals = np.linspace(X[feature].min(), X[feature].max(), 100)
+    x_vals_2d = pd.DataFrame({feature: x_vals})  # give it back the feature name
+    y_vals = lr.predict(x_vals_2d)
+
+    ax.plot(x_vals, y_vals, color="red", linewidth=2, label="Regression Line")
+    
+    # Labels
+    ax.set_title(f"{feature} vs {target}")
+    ax.set_xlabel(feature)
+    ax.set_ylabel(target)
+    ax.legend()
+    ax.grid(True)
+    plt.tight_layout()
+    
+    # Save temp file
+    tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+    tmp_path = tmp.name
+    tmp.close()
+    plt.savefig(tmp_path)
+    plt.close(fig)
+    temp_files.append(tmp_path)
+    
+    # Insert into Excel
+    img = XLImage(tmp_path)
+    wsMood.add_image(img, f"A{row}")
+    row += 20
+
+wb.save(OutputFileName)
+
+for path in temp_files:
+        os.remove(path)
+
+
+
+#wb = load_workbook(OutputFileName)
+#drip = DrippyKit(filepath=OutputFileName, sheet_name="MOOD_REGRESSION")
+#HeaderRow = next(drip.ws.iter_rows(min_row=1, max_row=1))
+#LastColumn = drip.ws.max_column + 1
+#FirstItemsRow = 2  # Just use the row number
+#LastRow = drip.ws.max_row
+#drip.HeaderLewk()
+#drip.ItemsLewk()
+#drip.ThiccBorder()
+#wb.save(OutputFileName)
+
 
 #---------------------------- RENAME REGRESSION HEADERS FOR OUTPUT WORKBOOK ---------------------------- 
 wb = load_workbook(OutputFileName)
