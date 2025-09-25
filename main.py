@@ -35,7 +35,7 @@ DATA_DF_HEADERS = [
 ]
 
 INPUT_HEADERS = {
-    "Box Temperature (Â°C)|Box_Temp|box temp|Box Temperature (°C)": "BoxTemp",
+    "Box Temperature (Â°C)|Box Temperature (°C)|Box_Temp|box temp": "BoxTemp",
     "Photon Count per Minute": "Photons",
     "Quantum Entanglement Index": "Entanglement", 
     "Observer Presence": "Observer", 
@@ -85,6 +85,22 @@ REGRESSION_TAB_HEADERS = {
     "SurvivalRate": "SURVIVAL\nRATE"
     }
 
+ImportanceRenameMap = {
+	"BoxTemp":"BOX TEMP (Celsius)", 
+   	"Photons": "PHOTON COUNT (per  minute)", 
+	"Entanglement": "ENTANGLEMENT INDEX", 
+	"Observer": "OBSERVER PRESENCE", 
+	"DecayRate": "RADIOACTIVE DECAY RATE", 
+	"Stability": "WAVEFUNCTION STABILITY", 
+	"Material_Graphene": "GRAPHENE BOX",
+	"Material_Lead": "LEAD BOX",
+	"Material Quantum Foam": "QUANTUM FOAM BOX",
+	"Material_Velvet": "VELVET BOX"
+	}
+
+TARGET_HEADERS = ["MoodScore", "SassIndex", "SurvivalRate"]
+
+
 #---------------------------- DATA/INFO CLASSES ---------------------------- 
 
 class PurrfectData: #Clean Data
@@ -118,6 +134,7 @@ class PurrfectData: #Clean Data
                 if alias in self.df.columns:
                     rename_map[alias] = standard_name
         self.df = self.df.rename(columns=rename_map)
+        print("Raw columns before normalization:", self.df.columns.tolist())
 
     def groom(self):
         self.CleanDataRightMeow()
@@ -210,7 +227,7 @@ class GetInfo:
         return InputFile
 
     def GetDF(InputFile):
-        df = pd.read_csv(InputFile)
+        df = pd.read_csv(InputFile, encoding='utf-8')
         return df
 
     def GetSavePath(UserInput):
@@ -294,21 +311,28 @@ Purr = PurrfectData(
 )
 DataDF = Purr.groom()
 
-
 #---------------------------- REGRESSION DATA FRAME ---------------------------- 
-
 UpdateDataDF = DataDF
 UpdateDataDF["MoodScore"] = np.random.uniform(0, 1, len(UpdateDataDF))
 UpdateDataDF["SassIndex"] = np.random.randint(0, 10, len(UpdateDataDF))
 UpdateDataDF["SurvivalRate"] = np.random.normal(loc=0.8, scale=0.1, size=len(UpdateDataDF)).clip(0, 1)
 
 
-missing = [col for col in REGRESSION_HEADERS if col not in UpdateDataDF.columns]
-if missing:
-    print("Missing columns:", missing)
+missing = [
+    canonical for canonical, aliases in INPUT_HEADERS.items()
+    if not any(alias in UpdateDataDF.columns for alias in aliases.split('|'))
+]
+print("Missing columns:", missing)
+
+missing_targets = [target for target in TARGET_HEADERS if target not in UpdateDataDF.columns]
+if missing_targets:
+    print("Missing target columns:", missing_targets)
+
 
 
 RegressionDF = UpdateDataDF.rename(columns=REGRESSION_HEADERS)
+print("Final columns in RegressionDF:", RegressionDF.columns.tolist())
+
 CatWhisperer = QuantumCafeModel(RegressionDF) # Initialize with dataframe
 CatWhisperer.train("MoodScore") # Train for MoodScore
 CatWhisperer.train("SurvivalRate") # Train for SurvivalRate
@@ -325,16 +349,16 @@ with pd.ExcelWriter(OutputFileName, engine="openpyxl") as writer:
     RegressionDF.to_excel(writer, sheet_name="CAT_REGRESSION", index=False)
     #DataDF.to_excel(writer, sheet_name="CAT_DATA", index=False)
     
-drip = DrippyKit(filepath=OutputFileName, sheet_name="CAT_REGRESSION")
-HeaderRow = next(drip.ws.iter_rows(min_row=1, max_row=1))
-LastColumn = drip.ws.max_column + 1
+DataDrip = DrippyKit(filepath=OutputFileName, sheet_name="CAT_REGRESSION")
+HeaderRow = next(DataDrip.ws.iter_rows(min_row=1, max_row=1))
+LastColumn = DataDrip.ws.max_column + 1
 FirstItemsRow = 2  # Just use the row number
-LastRow = drip.ws.max_row
-drip.HeaderLewk()
-drip.ItemsLewk()
-drip.ColumnWidths()
-drip.ThiccBorder()
-drip.wb.save(OutputFileName)
+LastRow = DataDrip.ws.max_row
+DataDrip.HeaderLewk()
+DataDrip.ItemsLewk()
+DataDrip.ColumnWidths()
+DataDrip.ThiccBorder()
+DataDrip.wb.save(OutputFileName)
 
 #drip = DrippyKit(filepath=OutputFileName, sheet_name="CAT_DATA")
 #HeaderRow = next(drip.ws.iter_rows(min_row=1, max_row=1))
@@ -357,32 +381,13 @@ wsREGRESSION = wb["CAT_REGRESSION"]
 excel_regression_headers = [cell.value for cell in wsREGRESSION[1]]
 #wsDATA = wb["CAT_DATA"]
 #excel_data_headers = [cell.value for cell in wsDATA[1]]  # First row is headers
-
-#print("Excel Headers:", excel_headers)
 #----------------------------  ADD SHEETS ---------------------------- 
 if "SCATTER_PLOTS" not in OutputFileName:
     wsScatterPlots = wb.create_sheet("SCATTER_PLOTS")
 else:
     wsScatterPlots = wb["SCATTER_PLOTS"]
 
-
-
-
-#if "SASS_REGRESSION" not in wb.sheetnames:
-#    wsSass = wb.create_sheet("SASS_REGRESSION")
-#else:
-#    wsSass = wb["SASS_REGRESSION"]
-
-#if "ALIVE_REGRESSION" not in wb.sheetnames:
-    #wsAlive = wb.create_sheet("ALIVE_REGRESSION")
-#else:
- #   wsAlive = wb["ALIVE_REGRESSION"]
-
-
 #----------------------------  MODELING - SCATTER PLOTS ---------------------------- 
-
-
-# Adjust column widths so plots have breathing room
 wsScatterPlots.column_dimensions["A"].width = 50
 wsScatterPlots.column_dimensions["B"].width = 3
 wsScatterPlots.column_dimensions["C"].width = 50
@@ -391,6 +396,13 @@ wsScatterPlots.column_dimensions["E"].width = 50
 
 QuantumFeatures = ["BoxTemp", "Photons", "Entanglement", "Observer", "DecayRate", "Stability", "Material"]
 QuantumTargets = ["MoodScore", "SassIndex", "SurvivalRate"]
+
+TargetFeatureMap = {
+    "MoodScore": ["BoxTemp", "Photons", "Entanglement", "DecayRate", "Stability", "Material"],
+    "SassIndex": ["BoxTemp", "Entanglement"],
+    "SurvivalRate": ["Observer"]
+}
+
 row = 1
 temp_files = []
 # Column mapping for each target
@@ -409,7 +421,7 @@ for target in QuantumTargets:
                 fig, ax = plt.subplots(figsize=(3.75, 3.5))
             else:
                 fig, ax = plt.subplots(figsize=(3.75, 2.5))
-            ax.scatter(RegressionDF[feature], RegressionDF[target], alpha=0.5, color="#4B1395", s=15)
+            ax.scatter(RegressionDF[feature], RegressionDF[target], alpha=0.5, color="#4B1395", s=15, label="Data")
             ax.set_title(f"{feature} vs {target}")
             ax.set_xlabel(feature)
             ax.set_ylabel(target)
@@ -435,15 +447,53 @@ for target in QuantumTargets:
             # Move down for the next feature plot of this target
             row_map[target] += 13
 
-
-
 wb.save(OutputFileName) # Save workbook before cleanup
 
 for path in temp_files: #  delete temp files
     os.remove(path)
 
+#  ---------------------------- REGRESSION HELPER FUNCTION ----------------------------
+def plot_regression(ws, RegressionDF, feature, target, start_row, col="A"):
+    """Create scatter + regression line plot for one feature vs. target, insert into Excel."""
+    fig, ax = plt.subplots(figsize=(6,4))
 
-#----------------------------  MODELING - MOOD SCORE REGRESSION---------------------------- 
+    # Scatter plot
+    ax.scatter(
+        RegressionDF[feature], RegressionDF[target],
+        alpha=0.6, color="#4B1395", s=15, label="Data"
+    )
+
+    # Fit regression line
+    X_feat = RegressionDF[[feature]]  # keep as DataFrame (preserves column name)
+    lr = LinearRegression()
+    lr.fit(X_feat, RegressionDF[target])
+
+    x_vals = np.linspace(X_feat.min().values[0], X_feat.max().values[0], 100)
+    x_df = pd.DataFrame(x_vals, columns=[feature])  # keep column name!
+    y_vals = lr.predict(x_df)
+
+    ax.plot(x_vals, y_vals, color="red", linewidth=2, label="Regression Line")
+
+    # Labels + style
+    ax.set_title(f"{feature} vs {target}")
+    ax.set_xlabel(feature)
+    ax.set_ylabel(target)
+    ax.grid(True)
+    ax.legend()
+    plt.tight_layout()
+
+    # Save temporary file
+    tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+    plt.savefig(tmp.name)
+    plt.close(fig)
+
+    # Insert image into Excel
+    img = XLImage(tmp.name)
+    ws.add_image(img, f"{col}{start_row}")
+
+    return tmp.name  # return path for cleanup
+
+#  ---------------------------- MODELING - MOOD SCORE REGRESSION ----------------------------
 wb = load_workbook(OutputFileName)
 
 if "MOOD_REGRESSION" not in wb.sheetnames:
@@ -454,17 +504,22 @@ else:
 wsMood.column_dimensions["A"].width = 25
 wsMood.column_dimensions["B"].width = 25
 
-
-
 target = "MoodScore"
-model, (r2, mse) = CatWhisperer.train(target)
+features = ["BoxTemp", "Photons", "Entanglement", "DecayRate", "Stability", "Material"]
 
-# Encode features so we know what order they’re in
-X = CatWhisperer.encode_features()
-feature_names = X.columns
+# Encode only those features (Material expands into dummy columns)
+X = RegressionDF[features].copy()
+X = pd.get_dummies(X, drop_first=True)
+y = RegressionDF[target]
 
-# Extract coefficients
-coefs = pd.Series(model.coef_, index=feature_names).sort_values(ascending=False)
+# Fit regression on the encoded features
+model = LinearRegression()
+model.fit(X, y)
+
+# Extract coefficients with your rename map
+coefs = pd.Series(model.coef_, index=X.columns)
+ordered = list(ImportanceRenameMap.keys())  # enforce your preferred order
+coefs = coefs.reindex(ordered).dropna()
 
 # Headers
 wsMood["A1"] = "FEATURE"
@@ -473,29 +528,32 @@ wsMood["B1"] = "IMPORTANCE"
 # Write coefficients
 row = 2
 for feat, imp in coefs.items():
-    wsMood[f"A{row}"] = feat
+    wsMood[f"A{row}"] = ImportanceRenameMap.get(feat, feat)
     wsMood[f"B{row}"] = round(float(imp), 3)
     row += 1
 
-
+# ---------------- scatter + regression plots ----------------
 row = 13
 temp_files = []
 
-for feature in X.columns:
-    fig, ax = plt.subplots(figsize=(6,4))
-    
-    # Scatter points
-    ax.scatter(X[feature], RegressionDF[target], alpha=0.6, color="#4B1395", s=15)
-    
-    # Fit regression line
-    lr = LinearRegression()
-    lr.fit(X[[feature]], RegressionDF[target])
-    x_vals = np.linspace(X[feature].min(), X[feature].max(), 100)
-    x_vals_2d = pd.DataFrame({feature: x_vals})  # give it back the feature name
-    y_vals = lr.predict(x_vals_2d)
+for feature in features:
+    # Encode just the current feature (in case it's categorical)
+    X_feat = RegressionDF[[feature]].copy()
+    X_feat = pd.get_dummies(X_feat, drop_first=True)
 
-    ax.plot(x_vals, y_vals, color="red", linewidth=2, label="Regression Line")
-    
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.scatter(RegressionDF[feature], y, alpha=0.6, color="#4B1395", s=15, label="Data")
+
+    # Fit regression line for this feature
+    lr = LinearRegression()
+    lr.fit(X_feat, y)
+
+    if X_feat.shape[1] == 1:  # numeric case
+        x_vals = np.linspace(X_feat.min().values[0], X_feat.max().values[0], 100)
+        x_df = pd.DataFrame(x_vals, columns=X_feat.columns)  # preserve column name(s)
+        y_vals = lr.predict(x_df)
+        ax.plot(x_vals, y_vals, color="red", linewidth=2, label="Regression Line")
+
     # Labels
     ax.set_title(f"{feature} vs {target}")
     ax.set_xlabel(feature)
@@ -503,15 +561,15 @@ for feature in X.columns:
     ax.legend()
     ax.grid(True)
     plt.tight_layout()
-    
-    # Save temp file
+
+    # Save temp image
     tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
     tmp_path = tmp.name
     tmp.close()
     plt.savefig(tmp_path)
     plt.close(fig)
     temp_files.append(tmp_path)
-    
+
     # Insert into Excel
     img = XLImage(tmp_path)
     wsMood.add_image(img, f"A{row}")
@@ -519,21 +577,202 @@ for feature in X.columns:
 
 wb.save(OutputFileName)
 
+# Clean up temp files
 for path in temp_files:
-        os.remove(path)
+    os.remove(path)
 
 
 
-#wb = load_workbook(OutputFileName)
-#drip = DrippyKit(filepath=OutputFileName, sheet_name="MOOD_REGRESSION")
-#HeaderRow = next(drip.ws.iter_rows(min_row=1, max_row=1))
-#LastColumn = drip.ws.max_column + 1
-#FirstItemsRow = 2  # Just use the row number
-#LastRow = drip.ws.max_row
-#drip.HeaderLewk()
-#drip.ItemsLewk()
-#drip.ThiccBorder()
-#wb.save(OutputFileName)
+
+MoodDrip = DrippyKit(filepath=OutputFileName, sheet_name="MOOD_REGRESSION")
+MoodDrip.RegressionLewk()
+
+
+#----------------------------  MODELING - SASS SCORE REGRESSION---------------------------- 
+wb = load_workbook(OutputFileName)
+
+if "SASS_REGRESSION" not in wb.sheetnames:
+    wsSass = wb.create_sheet("SASS_REGRESSION")
+else:
+    wsSass = wb["SASS_REGRESSION"]
+
+wsSass.column_dimensions["A"].width = 25
+wsSass.column_dimensions["B"].width = 25
+
+target = "SassIndex"
+features = ["BoxTemp", "Entanglement"]
+
+# Encode only those features (Material expands into dummy columns)
+X = RegressionDF[features].copy()
+X = pd.get_dummies(X, drop_first=True)
+y = RegressionDF[target]
+
+# Fit regression on the encoded features
+model = LinearRegression()
+model.fit(X, y)
+
+# Extract coefficients with your rename map
+coefs = pd.Series(model.coef_, index=X.columns)
+ordered = list(ImportanceRenameMap.keys())  # enforce your preferred order
+coefs = coefs.reindex(ordered).dropna()
+
+# Headers
+wsSass["A1"] = "FEATURE"
+wsSass["B1"] = "IMPORTANCE"
+
+# Write coefficients
+row = 2
+for feat, imp in coefs.items():
+    wsSass[f"A{row}"] = ImportanceRenameMap.get(feat, feat)
+    wsSass[f"B{row}"] = round(float(imp), 3)
+    row += 1
+
+# ---------------- scatter + regression plots ----------------
+row = 13
+temp_files = []
+
+for feature in features:
+    # Encode just the current feature (in case it's categorical)
+    X_feat = RegressionDF[[feature]].copy()
+    X_feat = pd.get_dummies(X_feat, drop_first=True)
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.scatter(RegressionDF[feature], y, alpha=0.6, color="#4B1395", s=15, label="Data")
+
+    # Fit regression line for this feature
+    lr = LinearRegression()
+    lr.fit(X_feat, y)
+
+    if X_feat.shape[1] == 1:  # numeric case
+        x_vals = np.linspace(X_feat.min().values[0], X_feat.max().values[0], 100)
+        x_df = pd.DataFrame(x_vals, columns=X_feat.columns)  # preserve column name(s)
+        y_vals = lr.predict(x_df)
+        ax.plot(x_vals, y_vals, color="red", linewidth=2, label="Regression Line")
+
+    # Labels
+    ax.set_title(f"{feature} vs {target}")
+    ax.set_xlabel(feature)
+    ax.set_ylabel(target)
+    ax.legend()
+    ax.grid(True)
+    plt.tight_layout()
+
+    # Save temp image
+    tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+    tmp_path = tmp.name
+    tmp.close()
+    plt.savefig(tmp_path)
+    plt.close(fig)
+    temp_files.append(tmp_path)
+
+    # Insert into Excel
+    img = XLImage(tmp_path)
+    wsSass.add_image(img, f"A{row}")
+    row += 20
+
+wb.save(OutputFileName)
+
+# Clean up temp files
+for path in temp_files:
+    os.remove(path)
+
+SassDrip = DrippyKit(filepath=OutputFileName, sheet_name="SASS_REGRESSION")
+SassDrip.RegressionLewk()
+
+
+
+#----------------------------  MODELING - SURVIVAL RATE REGRESSION---------------------------- 
+wb = load_workbook(OutputFileName)
+
+if "SURVIVAL_REGRESSION" not in wb.sheetnames:
+    wsAlive = wb.create_sheet("SURVIVAL_REGRESSION")
+else:
+    wsAlive = wb["SURVIVAL_REGRESSION"]
+
+wsAlive.column_dimensions["A"].width = 25
+wsAlive.column_dimensions["B"].width = 25
+
+target = "SurvivalRate"
+features = ["Observer"]
+
+# Encode only those features (Material expands into dummy columns)
+X = RegressionDF[features].copy()
+X = pd.get_dummies(X, drop_first=True)
+y = RegressionDF[target]
+
+# Fit regression on the encoded features
+model = LinearRegression()
+model.fit(X, y)
+
+# Extract coefficients with your rename map
+coefs = pd.Series(model.coef_, index=X.columns)
+ordered = list(ImportanceRenameMap.keys())  # enforce your preferred order
+coefs = coefs.reindex(ordered).dropna()
+
+# Headers
+wsAlive["A1"] = "FEATURE"
+wsAlive["B1"] = "IMPORTANCE"
+
+# Write coefficients
+row = 2
+for feat, imp in coefs.items():
+    wsAlive[f"A{row}"] = ImportanceRenameMap.get(feat, feat)
+    wsAlive[f"B{row}"] = round(float(imp), 3)
+    row += 1
+
+# ---------------- scatter + regression plots ----------------
+row = 13
+temp_files = []
+
+for feature in features:
+    # Encode just the current feature (in case it's categorical)
+    X_feat = RegressionDF[[feature]].copy()
+    X_feat = pd.get_dummies(X_feat, drop_first=True)
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.scatter(RegressionDF[feature], y, alpha=0.6, color="#4B1395", s=15, label="Data")
+
+    # Fit regression line for this feature
+    lr = LinearRegression()
+    lr.fit(X_feat, y)
+
+    if X_feat.shape[1] == 1:  # numeric case
+        x_vals = np.linspace(X_feat.min().values[0], X_feat.max().values[0], 100)
+        x_df = pd.DataFrame(x_vals, columns=X_feat.columns)  # preserve column name(s)
+        y_vals = lr.predict(x_df)
+        ax.plot(x_vals, y_vals, color="red", linewidth=2, label="Regression Line")
+
+    # Labels
+    ax.set_title(f"{feature} vs {target}")
+    ax.set_xlabel(feature)
+    ax.set_ylabel(target)
+    ax.legend()
+    ax.grid(True)
+    plt.tight_layout()
+
+    # Save temp image
+    tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+    tmp_path = tmp.name
+    tmp.close()
+    plt.savefig(tmp_path)
+    plt.close(fig)
+    temp_files.append(tmp_path)
+
+    # Insert into Excel
+    img = XLImage(tmp_path)
+    wsAlive.add_image(img, f"A{row}")
+    row += 20
+
+wb.save(OutputFileName)
+
+# Clean up temp files
+for path in temp_files:
+    os.remove(path)
+
+
+
+AliveDrip = DrippyKit(filepath=OutputFileName, sheet_name="SURVIVAL_REGRESSION")
+AliveDrip.RegressionLewk()
 
 
 #---------------------------- RENAME REGRESSION HEADERS FOR OUTPUT WORKBOOK ---------------------------- 
