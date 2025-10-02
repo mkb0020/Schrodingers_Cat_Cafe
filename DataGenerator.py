@@ -6,26 +6,27 @@ from datetime import datetime
 import csv
 
 
-def GetNewCatData(RowQTY, Initials): #RowQTY and Initials will come from user form
+def GetNewCatData(RowQTY, Initials): #ROW QTY AND INITIALS WILL ULTIMATELY COME FROM USER FORM
     np.random.seed(42)
-    n = RowQTY  # Number of rows
+    n = RowQTY  
 
-    #Get the name for new CSV file
-    TodaysDate = datetime.today().strftime("%Y%m%d")
-    CSVname = f"NewCatCafeData_{TodaysDate}_{Initials}.csv" #Initials will come from a user form
+    TodaysDate = datetime.today().strftime("%Y%m%d") #THIS WILL BE USED FOR THE NAME OF THE OUTPUT CSV FILE IF NEEDED
+    CSVname = f"NewCatCafeData_{TodaysDate}_{Initials}.csv" #INITIALS WILL COME FROM USER FORM
 
 
-    BoxTemp = np.round(np.random.normal(loc=24, scale=5, size=n), 2) # Box Temperature (°C) / Generate 100 box temperatures with a normal distribution / Affects comfort and decay rate of quantum particles
-    Photons = np.random.poisson(lam=300, size=n) # Photon Count per Minute / Poisson distribution for discrete quantum events / Measures quantum activity inside the box
-    Entanglement = np.round(np.random.beta(a=2, b=1.5, size=n), 3) # Quantum Entanglement Index (0.0 to 1.0, skewed toward higher entanglement) / Degree of entanglement with external systems
-    Observer = np.random.choice([0, 1], size=n, p=[0.35, 0.65])  # Observer Presence (0 = unobserved, 1 = observed) /  Mostly unobserved
-    DecayRate = np.round(np.random.uniform(0.1, 0.9, size=n), 3) # Radioactive Decay Rate / Probability of poison release mechanism triggering / 0.0 to 1.0, higher means more likely to trigger poison
-    Stability = np.round(np.random.normal(loc=0.6, scale=0.15, size=n), 3) # Wavefunction Stability / How stable the cat’s quantum state is / 0.0 to 1.0, higher = more stable
+    BoxTemp = np.round(np.random.normal(loc=24, scale=5, size=n), 2) # BOX TEMPERATURE (°C) / GENERATE 100 BOX TEMPERATURES WITH A NORMAL DISTRIBUTION / AFFECTS COMFORT AND DECAY RATE OF QUANTUM PARTICLES
+    Photons = np.random.poisson(lam=300, size=n) # PHOTON COUNT PER MINUTE / POISSON DISTRIBUTION FOR DISCRETE QUANTUM EVENTS / MEASURES QUANTUM ACTIVITY INSIDE THE BOX
+    Entanglement = np.round(np.random.beta(a=2, b=1.5, size=n), 3) # QUANTUM ENTANGLEMENT INDEX (0.0 TO 1.0, SKEWED TOWARD HIGHER ENTANGLEMENT) / DEGREE OF ENTANGLEMENT WITH EXTERNAL SYSTEMS
+    Observer = np.random.choice([0, 1], size=n, p=[0.35, 0.65])  # OBSERVER PRESENCE (0 = UNOBSERVED, 1 = OBSERVED) / MOSTLY UNOBSERVED
+    DecayRate = np.round(np.random.uniform(0.1, 0.9, size=n), 3) # RADIOACTIVE DECAY RATE / PROBABILITY OF POISON RELEASE MECHANISM TRIGGERING / 0.0 TO 1.0, HIGHER MEANS MORE LIKELY TO TRIGGER POISON
+    Stability = np.round(np.random.normal(loc=0.6, scale=0.15, size=n), 3) # WAVEFUNCTION STABILITY / HOW STABLE THE CAT’S QUANTUM STATE IS / 0.0 TO 1.0, HIGHER = MORE STABLE
     Stability= np.clip(Stability, 0, 1)
-    Materials = ['Cardboard', 'Lead', 'Graphene', 'Velvet', 'Quantum Foam'] # Box Material (categorical) / Categorical: cardboard, lead, graphene, etc.
+    Materials = ['Cardboard', 'Lead', 'Graphene', 'Velvet', 'Quantum Foam'] # BOX MATERIAL (CATEGORICAL) / CATEGORICAL: CARDBOARD, LEAD, GRAPHENE, ETC.
+
     Material = np.random.choice(Materials, size=n)
 
-    df = pd.DataFrame({ # CREATE DF - Headers are for the output csv
+    df = pd.DataFrame({# CREATE DF - HEADERS ARE FOR THE OUTPUT CSV
+
         'Box Temperature (C)': BoxTemp,
         'Radioactive Decay Rate': DecayRate,
         'Photon Count per Minute': Photons,
@@ -80,19 +81,12 @@ def GetNewCatData(RowQTY, Initials): #RowQTY and Initials will come from user fo
     df.to_csv(CSVname, index=False) # Save to CSV
     return df, CSVname
 
-
-
-def ScaleCatData(InputCSV, Initials):
+def ScaleCatData(InputDF):
     """
     Scales numeric features using StandardScaler (default).
     Returns scaled dataframe and fitted scaler (for later inverse transform).
     """
-    InputDF = pd.read_csv(InputCSV)
-    TodaysDate = datetime.today().strftime("%Y%m%d")
-    ScaledCSVname = f"ScaledCatCafeData_{TodaysDate}_{Initials}.csv"
     FeaturesToScale = ["BoxTemp", "DecayRate", "Photons", "Stability", "Entanglement"]
-
-
     def ScaleDF(InputDF, features=FeaturesToScale, scaler=None):
         if scaler is None:
             scaler = StandardScaler()
@@ -102,13 +96,12 @@ def ScaleCatData(InputCSV, Initials):
         
         ScaledDF = pd.DataFrame(ScaledDF, columns=features, index=InputDF.index)
         
-        # keep non-scaled columns
-        FinalScaledDF = InputDF.copy()
+        FinalScaledDF = InputDF.copy() # KEEP NON-SCALED COLUMNS
         for col in features:
             FinalScaledDF[col] = ScaledDF[col]
         return FinalScaledDF, scaler
     
-    InputDF = InputDF.rename(columns={ #The data generated has the headers on the left.  Converting to headers on the right for ease of use.
+    InputDF = InputDF.rename(columns={ 
         "Box Temperature (C)": "BoxTemp",
         "Radioactive Decay Rate": "DecayRate",
         "Photon Count per Minute": "Photons",
@@ -125,48 +118,7 @@ def ScaleCatData(InputCSV, Initials):
         InputDF[col] = None  # PLACEHOLDERS FOR PREDICTIONS AND ERRORS
 
     ScaledCatDF, scaler = ScaleDF(InputDF)
-        
     NumericalColumns = ["BoxTemp", "DecayRate", "Photons", "Stability", "Entanglement", "ActualMood", "ActualSass"]
-    #BooleanColumns = ["Observer", "ActualSurvival"]
-
     ScaledCatDF[NumericalColumns] = ScaledCatDF[NumericalColumns].astype(float)
-    #ScaledCatDF[BooleanColumns] = ScaledCatDF[BooleanColumns].astype(bool)
-
-    ScaledCatDF.to_csv(ScaledCSVname, index=False, float_format="%.6f") # Save to CSV
-
-    return ScaledCatDF, ScaledCSVname
-
-
-
-
-
-Initials = "MKB"
-RowQTY = 10
-NewCatData = GetNewCatData(RowQTY, Initials)
-CatDF = NewCatData[0]
-InputCSV = NewCatData[1]
-NewScaledCatData = ScaleCatData(InputCSV, Initials)
-NewScaledCatDF = NewScaledCatData[0]
-NewScaledCSV = NewScaledCatData[1]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    return ScaledCatDF
 
