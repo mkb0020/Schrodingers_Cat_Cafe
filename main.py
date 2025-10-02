@@ -1,826 +1,224 @@
+#WELCOME TO SCHRODINGERS CAT CAFE!
+# INDEPENDENT VARIABLES / FEATURES:
+#	BOXTEMP = AFFECTS COMFORT AND DECAY RATE OF QUANTUM PARTICLES
+#	DECAYRATE = PROBABILITY OF POISON RELEASE MECHANISM TRIGGERING
+#	PHOTONS = MEASURES QUANTUM ACTIVITY INSIDE THE BOX
+#	STABILITY = HOW STABLE THE CAT’S QUANTUM STATE IS
+#	ENTANGLEMENT = DEGREE OF ENTANGLEMENT WITH EXTERNAL SYSTEMS
+#	OBSERVER = BINARY: 0 = UNOBSERVED, 1 = OBSERVED
+#	MATERIAL = CATEGORICAL: CARDBOARD, LEAD, QUANTUM FOAM, OR VELVET
+
+# TARGETS:
+#   CAT MOOD SCORE / VARIABLE NAME: “MOODSCORE”
+# ○	    FLOAT FROM 0 TO 100
+# ○	    INTERPRETATION: REPRESENTS THE CAT’S EMOTIONAL STATE BEFORE DECOHERENCE
+# ○	    0 = EXISTENTIAL DREAD, 100 = QUANTUM BLISS
+# ○	    INFLUENCED BY BOXTEMP, DECAYRATE, PHOTONS, AND MATERIAL
+# •	QUANTUM SASS INDEX / VARIABLE NAME: “SASSINDEX”
+# ○	    FLOAT FROM 0 TO 100
+# ○	    100 = SUPER SASSY. 0 = NOT SASSY AT ALL
+#		INFLUENCED BY ENTANGLEMENT AND BOXTEMP
+#  ALIVE PROBABILITY / VARIABLE NAME: “SURVIVALRATE”
+# ○	    (0.0–1.0): REPRESENTS THE LIKELIHOOD THE CAT IS ALIVE
+# ○	    USE OBSERVER PRESENCE (BOOLEAN) TO SIMULATE WAVEFUNCTION COLLAPSE: WHEN OBSERVER PRESENCE = 1
+# ○	    INFLUENCED BY OBSERVER PRESENCE ONLY
+
+
+
+
+
+
 import pandas as pd
-import sys
-import os
-import io
-import tkinter as tk
-import subprocess
-import re
-import tempfile
-import matplotlib.pyplot as plt
-from openpyxl.drawing.image import Image as XLImage
-import numpy as np
-from io import BytesIO
-from tkinter import Tk, Label, Entry, Button, filedialog, simpledialog, messagebox, ttk
-from tkinter import *
 from datetime import datetime
-from openpyxl import load_workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, numbers
-from openpyxl.drawing.image import Image
-from CatDrip import DrippyKit
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score, mean_squared_error
-import seaborn as sns
+from tkinter import messagebox
+from RegressionCat import PurrfectRegression
+from ExcelCat import TipToe, PurrfectWB, CreateWB
+from DataGenerator import ScaleCatData
 
-#---------------------------- CLASSES TO COLLECT INFO, CLEAN DATA, AND GET THE HEADERS ---------------------------- 
-DATA_DF_HEADERS = [
-    "BoxTemp",
-    "Photons",
-    "Entanglement",
-    "Observer",
-    "DecayRate",
-    "Stability",
-    "Material"
-]
+#---------------------- FOR TESTING ----------------------
+InputCSV = "C:\\Users\\mkb00\\PROJECTS\\GitRepos\\Schrodingers_Cat_Cafe\\Test\\CafeData.csv"
+OutputPath = "C:\\Users\\mkb00\\PROJECTS\\GitRepos\\Schrodingers_Cat_Cafe\\Test\\CafeOutput.xlsx"
+MasterDataPath = "C:\\Users\\mkb00\\PROJECTS\\GitRepos\\Schrodingers_Cat_Cafe\\Test\\MasterData.csv"
 
-INPUT_HEADERS = {
-    "Box Temperature (Â°C)|Box Temperature (°C)|Box_Temp|box temp": "BoxTemp",
-    "Photon Count per Minute": "Photons",
-    "Quantum Entanglement Index": "Entanglement", 
-    "Observer Presence": "Observer", 
-    "Radioactive Decay Rate": "DecayRate", 
-    "Wavefunction Stability": "Stability",
-    "Box Material": "Material"
+UserName = "Mary Kathryn Barriault"
+name_parts = UserName.split()
+if len(name_parts) < 2:
+    messagebox.showerror("Invalid Name", "Please enter at least a first and last name.")
+first_initial = name_parts[0][0].upper()
+last_initial = name_parts[-1][0].upper()
+middle_initial = name_parts[1][0].upper() if len(name_parts) > 2 else "" # MIDDLE INITIAL = OPTIONAL
+initials = first_initial + middle_initial + last_initial # COMBINE INITIALS
+
+TodaysDate = datetime.today().strftime("%Y%m%d")
+
+
+def Headers():
+
+    #----------------------INSIGHTS TAB----------------------
+    InsightsDF = pd.DataFrame({ #This is for the top half of the INSIGHTS tab but the headers will not be included in the output due to formatting
+        "Feature": ["BoxTemp", "DecayRate", "Photons", "Stability", "Entanglement", "Observer", "Material_Cardboard", "Material_Lead", "Material_Quantumfoam", "Material_Velvet"], 
+        "MoodImportance": [0, 0, 0, 0, "N/A", "N/A", 0, 0, 0, 0],
+        "SassImportance": [0, "N/A", "N/A", "N/A", 0, "N/A", "N/A", "N/A", "N/A", "N/A"],
+        "SurvivalImportance": ["N/A", "N/A", "N/A", "N/A", "N/A", 0, "N/A", "N/A", "N/A", "N/A"],
+        "FeatureInsights": ["N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]
+        })
+
+    FeatureOutput = [ # This is for the INSIGHTS tab.  The values on the left will be what's on the workbook and the values on the right are how they're named in the data frame
+        ("BOX TEMP (Celsius)", "BoxTemp"),
+        ("RADIOACTIVE DECAY RATE", "DecayRate"),
+        ("PHOTON COUNT (per min)", "Photons"),
+        ("WAVEFUNCTION STABILITY", "Stability"),
+        ("ENTANGLEMENT INDEX", "Entanglement"),
+        ("OBSERVER PRESENCE", "Observer"),
+        ("CARDBOARD BOX", "Material_Cardboard"),
+        ("LEAD BOX", "Material_Lead"),
+        ("QUANTUM FOAM BOX", "Material_Quantumfoam"),
+        ("VELVET BOX", "Material_Velvet"),
+    ]
+
+    MetricsDF = pd.DataFrame({ #this is for the MODEL INSIGHTS section of the INSIGHTS tab in the output 
+        "Metric": ["R2,", "Beta", "MAE", "MSE", "RMSE"],
+        "Mood": [0, 0, 0, 0, 0],
+        "Sass": [0, 0, 0, 0, 0],
+        "Survival": [0, 0, 0, 0, 0],
+        "ModelInsights": ["N/A", "N/A", "N/A", "N/A", "N/A"]
+        })
+
+    MetricsHeaders = ["METRIC", "MOOD SCORE", "SASS INDEX", "SURVIVAL RATE", "INSIGHTS"] #This will be for row 17 in the INSIGHTS tab on the output
+
+    MetricsRenameMap = { #This is for A18:A22 in the INSIGHTS tab of the output
+        "R2": "Coefficient of Determination:",
+        "Beta": "Intercept:",
+        "MAE": "Mean Absolute Error",
+        "MSE": "Mean Squared Error",
+        "RMSE": "Root Mean Squared Error"
     }
 
-DATA_TAB_HEADERS = {
-    "BoxTemp":"BOX TEMP\n(Celsius)", 
-    "Photons": "PHOTON COUNT\n(per  minute)", 
-    "Entanglement": "ENTANGLEMENT\nINDEX", 
-    "Observer": "OBSERVER\nPRESENT?", 
-    "DecayRate": "RADIOACTIVE\nDECAY RATE", 
-    "Stability": "WAVEFUNCTION\nSTABILITY", 
-    "Material": "BOX\nMATERIAL"
-    }
+    #----------------------DATA TAB----------------------
+    DataTabHeaders = ["BOX\nTEMPERATURE\n(Celsius)", "RADIOACTIVE\nDECAY RATE", "PHOTON COUNT\n(PER MINUTE)", "WAVEFUNCTION\nSTABILITY", "ENTANGLEMENT\nINDEX", "OBSERVER\nPRESENT?", "BOX\nMATERIAL", "ACTUAL\nMOOD SCORE", "PREDICTED\nMOOD SCORE", "MOOD SCORE\nRESIDUAL", "ACTUAL\nSASS INDEX", "PREDICTED\nSASS INDEX", "SASS INDEX\nRESIDUAL", "ACTUAL\nSURVIVAL", "PREDICTED\nSURVIVAL", "SURVIVAL RATE\nRESIDUAL"] #Data tab headers in order
 
-RegresionMap = {
-    "BoxTemp|BOX TEMP\n(Celsius)|Box Temperature (Â°C)|Box Temperature (°C)": "BoxTemp",
-    "Photons|Photon Count per Minute|PHOTON COUNT\n(per  minute)": "Photons",
-    "Entanglement|Quantum Entanglement Index|ENTANGLEMENT\nINDEX": "Entanglement",
-    "Observer|Observer Presence|OBSERVER\nPRESENT?": "Observer",
-    "DecayRate|Radioactive Decay Rate|RADIOACTIVE\nDECAY RATE": "DecayRate",
-    "Stability|Wavefunction Stability|WAVEFUNCTION\nSTABILITY": "Stability",
-    "Material|Box Material|BOX\nMATERIAL": "Material",
-    "MoodScore": "MoodScore",
-    "SassIndex": "SassIndex",
-    "SurvivalRate": "SurvivalRate"
-    }
-
-REGRESSION_HEADERS = {}
-for variants, canonical in RegresionMap.items():
-    for variant in variants.split("|"):
-        REGRESSION_HEADERS[variant.strip()] = canonical
-
-REGRESSION_TAB_HEADERS = {
-    "BoxTemp":"BOX TEMP\n(Celsius)", 
-    "Photons": "PHOTON COUNT\n(per  minute)", 
-    "Entanglement": "ENTANGLEMENT\nINDEX", 
-    "Observer": "OBSERVER\nPRESENT?", 
-    "DecayRate": "RADIOACTIVE\nDECAY RATE", 
-    "Stability": "WAVEFUNCTION\nSTABILITY", 
-    "Material": "BOX\nMATERIAL",
-    "MoodScore": "MOOD\nSCORE",
-    "SassIndex": "SASS\nINDEX",
-    "SurvivalRate": "SURVIVAL\nRATE"
-    }
-
-ImportanceRenameMap = {
-	"BoxTemp":"BOX TEMP (Celsius)", 
-   	"Photons": "PHOTON COUNT (per  minute)", 
-	"Entanglement": "ENTANGLEMENT INDEX", 
-	"Observer": "OBSERVER PRESENCE", 
-	"DecayRate": "RADIOACTIVE DECAY RATE", 
-	"Stability": "WAVEFUNCTION STABILITY", 
-	"Material_Graphene": "GRAPHENE BOX",
-	"Material_Lead": "LEAD BOX",
-	"Material Quantum Foam": "QUANTUM FOAM BOX",
-	"Material_Velvet": "VELVET BOX"
-	}
-
-TARGET_HEADERS = ["MoodScore", "SassIndex", "SurvivalRate"]
-
-
-#---------------------------- DATA/INFO CLASSES ---------------------------- 
-
-class PurrfectData: #Clean Data
-    def __init__(self, df, InputHeaders, DFHeaders, OutputHeaders):
-        self.df = df.copy()
-        self.InputHeaders = InputHeaders
-        self.DFHeaders = DFHeaders
-        self.OutputHeaders = OutputHeaders
-    
-    def CleanDataRightMeow(self):
-        self.df = self.df.drop_duplicates()
-
-        numeric_cols = self.df.columns[:6]  # Columns A–F
-        string_col = self.df.columns[6]     # Column G
-
-        self.df[numeric_cols] = self.df[numeric_cols].apply(pd.to_numeric, errors='coerce')
-        self.df[string_col] = self.df[string_col].astype(str)
-
-        self.df = self.df.dropna() #Handle missing values (none expected, but good practice) or use 
-
-        #valid_materials = ['Cardboard', 'Lead', 'Graphene', 'Velvet', 'Quantum Foam'] #Validate categorical values
-        #df = df[df['box_material'].isin(valid_materials)]
-
-        #df['observer_presence'] = df['observer_presence'].astype(bool) #Convert observer presence to boolean
     
 
-    def normalize_headers(self):
-        rename_map = {}
-        for aliases, standard_name in self.InputHeaders.items():
-            for alias in aliases.split("|"):
-                if alias in self.df.columns:
-                    rename_map[alias] = standard_name
-        self.df = self.df.rename(columns=rename_map)
-        print("Raw columns before normalization:", self.df.columns.tolist())
-
-    def groom(self):
-        self.CleanDataRightMeow()
-        self.normalize_headers()
-        self.df = self.df.rename(columns=DATA_TAB_HEADERS)
-        return self.df
-
-class GetInfo:
-   
-    def GetUserInfo():
-        UserInfo = {}
-
-        def on_submit():
-            UserInfo["Name"] = Name.get()
-            UserInfo["DateToday"] = datetime.today().strftime("%Y%m%d")
-            root.quit()
-            root.destroy()
-
-        def on_cancel():
-            UserInfo["cancelled"] = True
-            root.quit()
-            root.destroy()
-            print("User Canceled")
-            sys.exit(1)
-
-        root = Tk()
-        root.title("Who are you?")
-        root.geometry("300x100")
-        root.configure(bg="#C2CAE8")
-
-        label_style = {"bg": "#C2CAE8", "fg": "#000000", "font": ("Courier New", 11, "bold")}
-        entry_style = {"bg": "#ffffff", "fg": "#000000", "font": ("Arial", 11)}
-
-        # Name label and entry
-        Label(root, text="Your Name:", **label_style).grid(row=0, column=0, sticky="e", padx=10, pady=10)
-        Name = Entry(root, width=20, **entry_style)
-        Name.grid(row=0, column=1, sticky="w", padx=10, pady=10)
-
-        # Button frame for centering
-        button_frame = Frame(root, bg="#C2CAE8")
-        button_frame.grid(row=1, column=0, columnspan=2, pady=10)
-
-        Button(
-            button_frame,
-            text="Cancel",
-            command=on_cancel,
-            bg="#CBCEDF",
-            fg="#000000",
-            font=("Arial", 11),
-            relief="raised",
-            padx=15, pady=5
-        ).pack(side=LEFT, padx=10)
-
-        Button(
-            button_frame,
-            text="Submit",
-            command=on_submit,
-            bg="#CBCEDF",
-            fg="#000000",
-            font=("Arial", 11),
-            relief="raised",
-            padx=15, pady=5
-        ).pack(side=RIGHT, padx=10)
-
-        root.eval('tk::PlaceWindow . center')
-        root.mainloop()
-
-        return UserInfo
-
-    def GetInputFile():
-        if len(sys.argv) > 1:
-            # Drag-and-drop case
-            InputFile = sys.argv[1]
-            if not os.path.isfile(InputFile):
-                print("The dropped file is not valid.")
-                sys.exit(1)
-        else:
-            # No drag-and-drop → open file picker
-            root = Tk()
-            root.withdraw()  # hide main Tkinter window
-            InputFile = filedialog.askopenfilename(
-                title="Select CSV file",
-                filetypes=[("CSV Files", "*.csv")]
-            )
-            if not InputFile:
-                print("No file selected. Exiting.")
-                sys.exit(0)
-
-        print(f"Processing file: {InputFile}")
-        return InputFile
-
-    def GetDF(InputFile):
-        df = pd.read_csv(InputFile, encoding='utf-8')
-        return df
-
-    def GetSavePath(UserInput):
-        """Generate and verify save path using subscription reference ID from B3."""
-    # Load subscription reference ID from Summary tab
-        
-        UserName = UserInput["Name"]
-        BaseName = f"Cat_Cafe_Result_{UserName}_{UserInput['DateToday']}.xlsx"
-
-        Tk().withdraw()
-        SavePath = filedialog.asksaveasfilename(defaultextension=".xlsx", initialfile=BaseName)
-
-        if SavePath and os.path.exists(SavePath):
-            version = simpledialog.askstring("Version", "Enter version number:") or "2"
-            BaseName = f"Cat_Cafe_Result_{UserName}_{UserInput['DateToday']}_v{version}.xlsx"
-            SavePath = os.path.join(os.path.dirname(SavePath), BaseName)
-
-        OutputFileName = SavePath
-        return OutputFileName
-
-#---------------------------- REGRESSION CLASS ---------------------------- 
-class QuantumCafeModel:
-    def __init__(self, df):
-        self.df = df.copy()
-        self.model = None
-        self.feature_columns = ['BoxTemp', 'Photons', 'Entanglement',
-                                'Observer', 'DecayRate', 'Stability', 'Material']
-
-    def encode_features(self):
-        """One-hot encode categorical Material column."""
-        X = self.df[self.feature_columns]
-        X = pd.get_dummies(X, columns=['Material'], drop_first=True)
-        return X
-
-    def split(self, target_col, test_size=0.2, random_state=42):
-        """Split data into train and test sets."""
-        X = self.encode_features()
-        y = self.df[target_col]
-        return train_test_split(X, y, test_size=test_size, random_state=random_state)
-
-    def train(self, target_col, model=None):
-        """Train a regression model on the given target."""
-        X_train, X_test, y_train, y_test = self.split(target_col)
-
-        # Use given model or default to LinearRegression
-        self.model = model if model else LinearRegression()
-        self.model.fit(X_train, y_train)
-
-        # Predictions and metrics
-        y_pred = self.model.predict(X_test)
-        r2 = r2_score(y_test, y_pred)
-        mse = mean_squared_error(y_test, y_pred)
-
-        print(f"📊 Results for {target_col}:")
-        print(f"R²: {r2:.3f}")
-        print(f"MSE: {mse:.3f}")
-
-        return self.model, (r2, mse)
-
-    def feature_importance(self, target_col):
-        """Print feature coefficients/importance (for linear models)."""
-        X = self.encode_features()
-        feature_names = X.columns
-
-        if hasattr(self.model, "coef_"):
-            coefs = pd.Series(self.model.coef_, index=feature_names)
-            print(f"\n🔍 Feature importance for {target_col}:")
-            print(coefs.sort_values(ascending=False))
-        else:
-            print("This model does not provide coefficients.")
-
-#---------------------------- GET INPUT AND DATA ----------------------------
-#UserInfo = GetInfo.GetUserInfo()
-#InputFile = GetInfo.GetInputFile()
-InputFile = "cat_cafe_dataset.csv"
-Purr = PurrfectData(
-    df = GetInfo.GetDF(InputFile),
-    DFHeaders=DATA_DF_HEADERS,
-    InputHeaders=INPUT_HEADERS,
-    OutputHeaders=DATA_TAB_HEADERS
-)
-DataDF = Purr.groom()
-
-#---------------------------- REGRESSION DATA FRAME ---------------------------- 
-UpdateDataDF = DataDF
-UpdateDataDF["MoodScore"] = np.random.uniform(0, 1, len(UpdateDataDF))
-UpdateDataDF["SassIndex"] = np.random.randint(0, 10, len(UpdateDataDF))
-UpdateDataDF["SurvivalRate"] = np.random.normal(loc=0.8, scale=0.1, size=len(UpdateDataDF)).clip(0, 1)
+    #----------------------SCATTER PLOT TAB----------------------
+    ScatterHeaders = ["", "MOOD SCORE", "", "SASS INDEX", "", "SURVIVAL RATE", ""]  #Headers for scatter plot tab - will be inserted into row 2 / A, C, E, and G are blanks
 
 
-missing = [
-    canonical for canonical, aliases in INPUT_HEADERS.items()
-    if not any(alias in UpdateDataDF.columns for alias in aliases.split('|'))
-]
-print("Missing columns:", missing)
+    #----------------TARGET / FEATURES
 
-missing_targets = [target for target in TARGET_HEADERS if target not in UpdateDataDF.columns]
-if missing_targets:
-    print("Missing target columns:", missing_targets)
+    MoodFeatures = ["BoxTemp", "DecayRate", "Photons", "Stability", "Material"]
+    SassFeatures = ["BoxTemp", "Entanglement"]
+    SurvivalFeatures = ["Observer"]
 
 
+        # Registry of targets and their settings
 
-RegressionDF = UpdateDataDF.rename(columns=REGRESSION_HEADERS)
-print("Final columns in RegressionDF:", RegressionDF.columns.tolist())
+def normalize_headers(df, AliasMap):
+    RenameMap = {}
+    for aliases, standard_name in AliasMap.items():
+        for alias in aliases.split("|"):
+            if alias in df.columns:
+                RenameMap[alias] = standard_name
+    return df.rename(columns=RenameMap)
 
-CatWhisperer = QuantumCafeModel(RegressionDF) # Initialize with dataframe
-CatWhisperer.train("MoodScore") # Train for MoodScore
-CatWhisperer.train("SurvivalRate") # Train for SurvivalRate
-CatWhisperer.train("SassIndex") # Train for SassIndex
-CatWhisperer.feature_importance("MoodScore") # Look at feature influence for MoodScore
+def main():
+    InputDF = pd.read_csv("CafeData.csv")
+    ScaledInputDF = ScaleCatData(InputDF)
+    InputRenameMap = { 
+            "Box Temperature (C)": "BoxTemp",
+            "Radioactive Decay Rate": "DecayRate",
+            "Photon Count per Minute": "Photons",
+            "Wavefunction Stability": "Stability",
+            "Quantum Entanglement Index": "Entanglement",
+            "Observer Presence": "Observer",
+            "Box Material": "Material",
+            "Actual Mood Score": "ActualMood",
+            "Actual Sass Index": "ActualSass",
+            "Actual Survival": "ActualSurvival"
+        }
+    InputDF = normalize_headers(InputDF, InputRenameMap)
+    CatDataHeaders= [
+            "BoxTemp",
+            "DecayRate",
+            "Photons",
+            "Stability",
+            "Entanglement",
+            "Observer",
+            "Material",
+            "ActualMood",
+            "PredictedMood",
+            "MoodEpsilon",
+            "ActualSass",
+            "PredictedSass",
+            "SassEpsilon",
+            "ActualSurvival",
+            "PredictedSurvival",
+            "SurvivalEpsilon"
+        ]
+    for col in CatDataHeaders: #MAKE SURE EXPECTED COLUMNS EXIST
+        if col not in InputDF.columns:
+            InputDF[col] = None 
+    InputDF = InputDF[CatDataHeaders] 
+ 
+    print(InputDF)
+    print(ScaledInputDF)
+    print(InputDF["Observer"])
 
-#OutputFileName = GetInfo.GetSavePath(UserInfo)
-OutputFileName = "output.xlsx"
-if not OutputFileName:
-    print("No save location chosen. Exiting.")
 
-#df.to_excel('OutputFileName.xlsx', index=False)
-with pd.ExcelWriter(OutputFileName, engine="openpyxl") as writer:
-    RegressionDF.to_excel(writer, sheet_name="CAT_REGRESSION", index=False)
-    #DataDF.to_excel(writer, sheet_name="CAT_DATA", index=False)
+    RegressionMeow = PurrfectRegression(ScaledInputDF)
+    RegressionMeow.RunRegression()
+
+    InputDF["PredictedMood"] = RegressionMeow.CatPrediction
+    InputDF["MoodEpsilon"] = InputDF["ActualMood"] - InputDF["PredictedMood"]
+    InputDF["PredictedSass"] = RegressionMeow.CatPrediction
+    InputDF["SassEpsilon"] = InputDF["ActualSass"] - InputDF["PredictedSass"]
     
-DataDrip = DrippyKit(filepath=OutputFileName, sheet_name="CAT_REGRESSION")
-HeaderRow = next(DataDrip.ws.iter_rows(min_row=1, max_row=1))
-LastColumn = DataDrip.ws.max_column + 1
-FirstItemsRow = 2  # Just use the row number
-LastRow = DataDrip.ws.max_row
-DataDrip.HeaderLewk()
-DataDrip.ItemsLewk()
-DataDrip.ColumnWidths()
-DataDrip.ThiccBorder()
-DataDrip.wb.save(OutputFileName)
+    InputDF["Observer"] = pd.to_numeric(InputDF["Observer"], errors="coerce").fillna(0).astype(int) #OBSERVER = NUMERIC
 
-#drip = DrippyKit(filepath=OutputFileName, sheet_name="CAT_DATA")
-#HeaderRow = next(drip.ws.iter_rows(min_row=1, max_row=1))
-#LastColumn = drip.ws.max_column + 1
-#FirstItemsRow = 2  # Just use the row number
-#LastRow = drip.ws.max_row
-#drip.HeaderLewk()
-#drip.ItemsLewk()
-#drip.ColumnWidths()
-#drip.ThiccBorder()
-#drip.wb.save(OutputFileName)
+    InputDF["ActualSurvival"] = InputDF["ActualSurvival"].replace({"": None, None: None}).astype(object) #NORMALIZE BLANKS/NON AND MARK UNOBSERVED ROWS AS UNKNOWN
+    mask_unobserved = InputDF["Observer"] == 0
+    InputDF.loc[mask_unobserved, "ActualSurvival"] = "Unknown"
 
-#---------------------------- SAVE ----------------------------
-wb = load_workbook(OutputFileName)
-wb.save(OutputFileName)
-print(f"DONE")
-#print("DataFrame Headers:", list(DataDF.columns))
-wb = load_workbook(OutputFileName) # Load Excel back in with openpyxl
-wsREGRESSION = wb["CAT_REGRESSION"]
-excel_regression_headers = [cell.value for cell in wsREGRESSION[1]]
-#wsDATA = wb["CAT_DATA"]
-#excel_data_headers = [cell.value for cell in wsDATA[1]]  # First row is headers
-#----------------------------  ADD SHEETS ---------------------------- 
-if "SCATTER_PLOTS" not in OutputFileName:
-    wsScatterPlots = wb.create_sheet("SCATTER_PLOTS")
-else:
-    wsScatterPlots = wb["SCATTER_PLOTS"]
+    InputDF["ActualSurvivalNum"] = pd.to_numeric(InputDF["ActualSurvival"].replace({"Unknown": None}), errors="coerce").astype(float) #CREATE NUMERIC COLUMN FOR MODELING - UNKNOWNS BECME NAN
 
-#----------------------------  MODELING - SCATTER PLOTS ---------------------------- 
-wsScatterPlots.column_dimensions["A"].width = 50
-wsScatterPlots.column_dimensions["B"].width = 3
-wsScatterPlots.column_dimensions["C"].width = 50
-wsScatterPlots.column_dimensions["D"].width = 3
-wsScatterPlots.column_dimensions["E"].width = 50
+    mask_observed = (InputDF["Observer"] == 1) & InputDF["ActualSurvivalNum"].notna() #MASK NUMERIC COLUMN
+    mask_unobserved = InputDF["Observer"] == 0
 
-QuantumFeatures = ["BoxTemp", "Photons", "Entanglement", "Observer", "DecayRate", "Stability", "Material"]
-QuantumTargets = ["MoodScore", "SassIndex", "SurvivalRate"]
+    InputDF["PredictedSurvival"] = None #ENSURE EXISTENCE OF COLUMNS
+    InputDF["SurvivalEpsilon"] = None
 
-TargetFeatureMap = {
-    "MoodScore": ["BoxTemp", "Photons", "Entanglement", "DecayRate", "Stability", "Material"],
-    "SassIndex": ["BoxTemp", "Entanglement"],
-    "SurvivalRate": ["Observer"]
-}
+    InputDF.loc[mask_unobserved, "PredictedSurvival"] = "Unknown" #DISPLAY VALUES FOR UNOBSERVED ROWS
+    InputDF.loc[mask_unobserved, "SurvivalEpsilon"] = "Unknown"
 
-row = 1
-temp_files = []
-# Column mapping for each target
-col_map = {
-    "MoodScore": "A",      # First strip
-    "SassIndex": "C",      # Skip one column
-    "SurvivalRate": "E"    # Skip again
-}
+    preds = RegressionMeow.Predictions.get("Survival")  # GET PREDICTIONS - pd SERIES 
+    if preds is None:
+        preds = pd.Series([None] * len(InputDF), index=InputDF.index)
+    if not isinstance(preds, pd.Series): #IF PREDICTIONS IS NUMPY ARRAY -> CONVERT TO SERIES W/O CHANGING INDEX
+        preds = pd.Series(preds, index=InputDF.index)
 
-row_map = {"MoodScore": 1, "SassIndex": 1, "SurvivalRate": 1}  # Track row per target
-
-for target in QuantumTargets:
-    for feature in QuantumFeatures:
-        if feature in RegressionDF.columns:
-            if feature == "Material":
-                fig, ax = plt.subplots(figsize=(3.75, 3.5))
-            else:
-                fig, ax = plt.subplots(figsize=(3.75, 2.5))
-            ax.scatter(RegressionDF[feature], RegressionDF[target], alpha=0.5, color="#4B1395", s=15, label="Data")
-            ax.set_title(f"{feature} vs {target}")
-            ax.set_xlabel(feature)
-            ax.set_ylabel(target)
-            if feature == "Material":
-                plt.setp(ax.get_xticklabels(), rotation=45, ha="right", fontsize=8)
-            ax.grid(True)
-            plt.tight_layout()
-
-            # Save image to temp file
-            tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-            tmp_path = tmp.name
-            tmp.close()
-            plt.savefig(tmp_path)
-            plt.close(fig)
-            temp_files.append(tmp_path)
-
-            # Place image in Excel at the correct column/row
-            img = XLImage(tmp_path)
-            col = col_map[target]
-            row = row_map[target]
-            wsScatterPlots.add_image(img, f"{col}{row}")
-
-            # Move down for the next feature plot of this target
-            row_map[target] += 13
-
-wb.save(OutputFileName) # Save workbook before cleanup
-
-for path in temp_files: #  delete temp files
-    os.remove(path)
-
-#  ---------------------------- REGRESSION HELPER FUNCTION ----------------------------
-def plot_regression(ws, RegressionDF, feature, target, start_row, col="A"):
-    """Create scatter + regression line plot for one feature vs. target, insert into Excel."""
-    fig, ax = plt.subplots(figsize=(6,4))
-
-    # Scatter plot
-    ax.scatter(
-        RegressionDF[feature], RegressionDF[target],
-        alpha=0.6, color="#4B1395", s=15, label="Data"
+    InputDF.loc[mask_observed, "PredictedSurvival"] = preds.loc[mask_observed].astype(float) #NUMERIC PREDICTIONS AND COMPUTE RESIDUALS
+    InputDF.loc[mask_observed, "SurvivalEpsilon"] = (
+        InputDF.loc[mask_observed, "ActualSurvivalNum"].astype(float)
+        - InputDF.loc[mask_observed, "PredictedSurvival"].astype(float)
     )
 
-    # Fit regression line
-    X_feat = RegressionDF[[feature]]  # keep as DataFrame (preserves column name)
-    lr = LinearRegression()
-    lr.fit(X_feat, RegressionDF[target])
+    print(InputDF)
 
-    x_vals = np.linspace(X_feat.min().values[0], X_feat.max().values[0], 100)
-    x_df = pd.DataFrame(x_vals, columns=[feature])  # keep column name!
-    y_vals = lr.predict(x_df)
 
-    ax.plot(x_vals, y_vals, color="red", linewidth=2, label="Regression Line")
+    if "ActualSurvivalNum" in InputDF.columns and "ActualSurvival" in InputDF.columns:
+        InputDF = InputDF.copy() #SAFETY COPY
+        mask_known_num = InputDF["ActualSurvivalNum"].notna() #USE NUMBERS WHERE POSSIBLE, IF NOT, USE UNKNOWN
+        InputDF["ActualSurvival_Display"] = InputDF["ActualSurvival"].astype(object) #SET DISPLAY COLUMN TO TEXTUAL VALUES (including "Unknown")
+        InputDF.loc[mask_known_num, "ActualSurvival_Display"] = InputDF.loc[mask_known_num, "ActualSurvivalNum"] #OVERWRITE NUMERIC ONLY VALUS 
+        InputDF["ActualSurvival"] = InputDF["ActualSurvival_Display"] #REPLACE OF COLUMN WITH DISPLAY COLUMN
+        InputDF = InputDF.drop(columns=["ActualSurvival_Display", "ActualSurvivalNum"])
 
-    # Labels + style
-    ax.set_title(f"{feature} vs {target}")
-    ax.set_xlabel(feature)
-    ax.set_ylabel(target)
-    ax.grid(True)
-    ax.legend()
-    plt.tight_layout()
 
-    # Save temporary file
-    tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-    plt.savefig(tmp.name)
-    plt.close(fig)
 
-    # Insert image into Excel
-    img = XLImage(tmp.name)
-    ws.add_image(img, f"{col}{start_row}")
 
-    return tmp.name  # return path for cleanup
+        # Prepare Excel
+    ExcelMeow = PurrfectWB(InputDF, OutputPath, RegressionMeow.ScatterPlots, RegressionMeow.RegressionPlots)
+    ExcelMeow.DataKitten()
+    ExcelMeow.ExcelLitter(OutputPath)
 
-#  ---------------------------- MODELING - MOOD SCORE REGRESSION ----------------------------
-wb = load_workbook(OutputFileName)
-
-if "MOOD_REGRESSION" not in wb.sheetnames:
-    wsMood = wb.create_sheet("MOOD_REGRESSION")
-else:
-    wsMood = wb["MOOD_REGRESSION"]
-
-wsMood.column_dimensions["A"].width = 25
-wsMood.column_dimensions["B"].width = 25
-
-target = "MoodScore"
-features = ["BoxTemp", "Photons", "Entanglement", "DecayRate", "Stability", "Material"]
-
-# Encode only those features (Material expands into dummy columns)
-X = RegressionDF[features].copy()
-X = pd.get_dummies(X, drop_first=True)
-y = RegressionDF[target]
-
-# Fit regression on the encoded features
-model = LinearRegression()
-model.fit(X, y)
-
-# Extract coefficients with your rename map
-coefs = pd.Series(model.coef_, index=X.columns)
-ordered = list(ImportanceRenameMap.keys())  # enforce your preferred order
-coefs = coefs.reindex(ordered).dropna()
-
-# Headers
-wsMood["A1"] = "FEATURE"
-wsMood["B1"] = "IMPORTANCE"
-
-# Write coefficients
-row = 2
-for feat, imp in coefs.items():
-    wsMood[f"A{row}"] = ImportanceRenameMap.get(feat, feat)
-    wsMood[f"B{row}"] = round(float(imp), 3)
-    row += 1
-
-# ---------------- scatter + regression plots ----------------
-row = 13
-temp_files = []
-
-for feature in features:
-    # Encode just the current feature (in case it's categorical)
-    X_feat = RegressionDF[[feature]].copy()
-    X_feat = pd.get_dummies(X_feat, drop_first=True)
-
-    fig, ax = plt.subplots(figsize=(6, 4))
-    ax.scatter(RegressionDF[feature], y, alpha=0.6, color="#4B1395", s=15, label="Data")
-
-    # Fit regression line for this feature
-    lr = LinearRegression()
-    lr.fit(X_feat, y)
-
-    if X_feat.shape[1] == 1:  # numeric case
-        x_vals = np.linspace(X_feat.min().values[0], X_feat.max().values[0], 100)
-        x_df = pd.DataFrame(x_vals, columns=X_feat.columns)  # preserve column name(s)
-        y_vals = lr.predict(x_df)
-        ax.plot(x_vals, y_vals, color="red", linewidth=2, label="Regression Line")
-
-    # Labels
-    ax.set_title(f"{feature} vs {target}")
-    ax.set_xlabel(feature)
-    ax.set_ylabel(target)
-    ax.legend()
-    ax.grid(True)
-    plt.tight_layout()
-
-    # Save temp image
-    tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-    tmp_path = tmp.name
-    tmp.close()
-    plt.savefig(tmp_path)
-    plt.close(fig)
-    temp_files.append(tmp_path)
-
-    # Insert into Excel
-    img = XLImage(tmp_path)
-    wsMood.add_image(img, f"A{row}")
-    row += 20
-
-wb.save(OutputFileName)
-
-# Clean up temp files
-for path in temp_files:
-    os.remove(path)
-
-
-
-
-MoodDrip = DrippyKit(filepath=OutputFileName, sheet_name="MOOD_REGRESSION")
-MoodDrip.RegressionLewk()
-
-
-#----------------------------  MODELING - SASS SCORE REGRESSION---------------------------- 
-wb = load_workbook(OutputFileName)
-
-if "SASS_REGRESSION" not in wb.sheetnames:
-    wsSass = wb.create_sheet("SASS_REGRESSION")
-else:
-    wsSass = wb["SASS_REGRESSION"]
-
-wsSass.column_dimensions["A"].width = 25
-wsSass.column_dimensions["B"].width = 25
-
-target = "SassIndex"
-features = ["BoxTemp", "Entanglement"]
-
-# Encode only those features (Material expands into dummy columns)
-X = RegressionDF[features].copy()
-X = pd.get_dummies(X, drop_first=True)
-y = RegressionDF[target]
-
-# Fit regression on the encoded features
-model = LinearRegression()
-model.fit(X, y)
-
-# Extract coefficients with your rename map
-coefs = pd.Series(model.coef_, index=X.columns)
-ordered = list(ImportanceRenameMap.keys())  # enforce your preferred order
-coefs = coefs.reindex(ordered).dropna()
-
-# Headers
-wsSass["A1"] = "FEATURE"
-wsSass["B1"] = "IMPORTANCE"
-
-# Write coefficients
-row = 2
-for feat, imp in coefs.items():
-    wsSass[f"A{row}"] = ImportanceRenameMap.get(feat, feat)
-    wsSass[f"B{row}"] = round(float(imp), 3)
-    row += 1
-
-# ---------------- scatter + regression plots ----------------
-row = 13
-temp_files = []
-
-for feature in features:
-    # Encode just the current feature (in case it's categorical)
-    X_feat = RegressionDF[[feature]].copy()
-    X_feat = pd.get_dummies(X_feat, drop_first=True)
-
-    fig, ax = plt.subplots(figsize=(6, 4))
-    ax.scatter(RegressionDF[feature], y, alpha=0.6, color="#4B1395", s=15, label="Data")
-
-    # Fit regression line for this feature
-    lr = LinearRegression()
-    lr.fit(X_feat, y)
-
-    if X_feat.shape[1] == 1:  # numeric case
-        x_vals = np.linspace(X_feat.min().values[0], X_feat.max().values[0], 100)
-        x_df = pd.DataFrame(x_vals, columns=X_feat.columns)  # preserve column name(s)
-        y_vals = lr.predict(x_df)
-        ax.plot(x_vals, y_vals, color="red", linewidth=2, label="Regression Line")
-
-    # Labels
-    ax.set_title(f"{feature} vs {target}")
-    ax.set_xlabel(feature)
-    ax.set_ylabel(target)
-    ax.legend()
-    ax.grid(True)
-    plt.tight_layout()
-
-    # Save temp image
-    tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-    tmp_path = tmp.name
-    tmp.close()
-    plt.savefig(tmp_path)
-    plt.close(fig)
-    temp_files.append(tmp_path)
-
-    # Insert into Excel
-    img = XLImage(tmp_path)
-    wsSass.add_image(img, f"A{row}")
-    row += 20
-
-wb.save(OutputFileName)
-
-# Clean up temp files
-for path in temp_files:
-    os.remove(path)
-
-SassDrip = DrippyKit(filepath=OutputFileName, sheet_name="SASS_REGRESSION")
-SassDrip.RegressionLewk()
-
-
-
-#----------------------------  MODELING - SURVIVAL RATE REGRESSION---------------------------- 
-wb = load_workbook(OutputFileName)
-
-if "SURVIVAL_REGRESSION" not in wb.sheetnames:
-    wsAlive = wb.create_sheet("SURVIVAL_REGRESSION")
-else:
-    wsAlive = wb["SURVIVAL_REGRESSION"]
-
-wsAlive.column_dimensions["A"].width = 25
-wsAlive.column_dimensions["B"].width = 25
-
-target = "SurvivalRate"
-features = ["Observer"]
-
-# Encode only those features (Material expands into dummy columns)
-X = RegressionDF[features].copy()
-X = pd.get_dummies(X, drop_first=True)
-y = RegressionDF[target]
-
-# Fit regression on the encoded features
-model = LinearRegression()
-model.fit(X, y)
-
-# Extract coefficients with your rename map
-coefs = pd.Series(model.coef_, index=X.columns)
-ordered = list(ImportanceRenameMap.keys())  # enforce your preferred order
-coefs = coefs.reindex(ordered).dropna()
-
-# Headers
-wsAlive["A1"] = "FEATURE"
-wsAlive["B1"] = "IMPORTANCE"
-
-# Write coefficients
-row = 2
-for feat, imp in coefs.items():
-    wsAlive[f"A{row}"] = ImportanceRenameMap.get(feat, feat)
-    wsAlive[f"B{row}"] = round(float(imp), 3)
-    row += 1
-
-# ---------------- scatter + regression plots ----------------
-row = 13
-temp_files = []
-
-for feature in features:
-    # Encode just the current feature (in case it's categorical)
-    X_feat = RegressionDF[[feature]].copy()
-    X_feat = pd.get_dummies(X_feat, drop_first=True)
-
-    fig, ax = plt.subplots(figsize=(6, 4))
-    ax.scatter(RegressionDF[feature], y, alpha=0.6, color="#4B1395", s=15, label="Data")
-
-    # Fit regression line for this feature
-    lr = LinearRegression()
-    lr.fit(X_feat, y)
-
-    if X_feat.shape[1] == 1:  # numeric case
-        x_vals = np.linspace(X_feat.min().values[0], X_feat.max().values[0], 100)
-        x_df = pd.DataFrame(x_vals, columns=X_feat.columns)  # preserve column name(s)
-        y_vals = lr.predict(x_df)
-        ax.plot(x_vals, y_vals, color="red", linewidth=2, label="Regression Line")
-
-    # Labels
-    ax.set_title(f"{feature} vs {target}")
-    ax.set_xlabel(feature)
-    ax.set_ylabel(target)
-    ax.legend()
-    ax.grid(True)
-    plt.tight_layout()
-
-    # Save temp image
-    tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-    tmp_path = tmp.name
-    tmp.close()
-    plt.savefig(tmp_path)
-    plt.close(fig)
-    temp_files.append(tmp_path)
-
-    # Insert into Excel
-    img = XLImage(tmp_path)
-    wsAlive.add_image(img, f"A{row}")
-    row += 20
-
-wb.save(OutputFileName)
-
-# Clean up temp files
-for path in temp_files:
-    os.remove(path)
-
-
-
-AliveDrip = DrippyKit(filepath=OutputFileName, sheet_name="SURVIVAL_REGRESSION")
-AliveDrip.RegressionLewk()
-
-
-#---------------------------- RENAME REGRESSION HEADERS FOR OUTPUT WORKBOOK ---------------------------- 
-wb = load_workbook(OutputFileName)
-RegressionDF = RegressionDF.rename(columns=REGRESSION_TAB_HEADERS)
-wb.save(OutputFileName)
-#---------------------------- END MESSAGE ---------------------------- 
-def show_completion_popup(OutputFileName):
-    def open_file():
-        try:
-            os.startfile(OutputFileName)  # Windows
-        except AttributeError:
-            subprocess.call(["open", OutputFileName])  # macOS fallback
-        popup.destroy()
-
-    def close_popup():
-        popup.destroy()
-
-    popup = tk.Tk()
-    popup.title("Purrrrrfect!")
-    popup.geometry("500x250")
-    popup.configure(bg="#C2CAE8")
-
-    label = tk.Label(
-        popup,
-        text=f"New Cat Report, who dis!\n\nSaved to:\n{OutputFileName}",
-        bg="#C2CAE8",
-        fg="#000000",
-        font=("Arial", 11),
-        justify="center",
-        wraplength=380
-    )
-    label.pack(pady=10)
-
-    button_frame = tk.Frame(popup, bg="#C2CAE8")
-
-    print("Packing button frame…")
-    button_frame.pack(pady=5)
-
-    tk.Button(button_frame, text="View File", command=open_file, bg="#CBCEDF", font=("Arial", 10)).pack(side="left", padx=10)
-    tk.Button(button_frame, text="OK", command=close_popup, bg="#CBCEDF", font=("Arial", 10)).pack(side="right", padx=10)
-
-    popup.eval('tk::PlaceWindow . center')
-    popup.update_idletasks()
-    popup.mainloop()
-
-OutputFileName = os.path.abspath(OutputFileName)
-show_completion_popup(OutputFileName)
-
-
-
+if __name__ == "__main__":
+    main()
