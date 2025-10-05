@@ -52,66 +52,6 @@ initials = first_initial + middle_initial + last_initial # COMBINE INITIALS
 TodaysDate = datetime.today().strftime("%Y%m%d")
 
 
-def Headers():
-
-    #----------------------INSIGHTS TAB----------------------
-    InsightsDF = pd.DataFrame({ #This is for the top half of the INSIGHTS tab but the headers will not be included in the output due to formatting
-        "Feature": ["BoxTemp", "DecayRate", "Photons", "Stability", "Entanglement", "Observer", "Material_Cardboard", "Material_Lead", "Material_Quantumfoam", "Material_Velvet"], 
-        "MoodImportance": [0, 0, 0, 0, "N/A", "N/A", 0, 0, 0, 0],
-        "SassImportance": [0, "N/A", "N/A", "N/A", 0, "N/A", "N/A", "N/A", "N/A", "N/A"],
-        "SurvivalImportance": ["N/A", "N/A", "N/A", "N/A", "N/A", 0, "N/A", "N/A", "N/A", "N/A"],
-        "FeatureInsights": ["N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"]
-        })
-
-    FeatureOutput = [ # This is for the INSIGHTS tab.  The values on the left will be what's on the workbook and the values on the right are how they're named in the data frame
-        ("BOX TEMP (Celsius)", "BoxTemp"),
-        ("RADIOACTIVE DECAY RATE", "DecayRate"),
-        ("PHOTON COUNT (per min)", "Photons"),
-        ("WAVEFUNCTION STABILITY", "Stability"),
-        ("ENTANGLEMENT INDEX", "Entanglement"),
-        ("OBSERVER PRESENCE", "Observer"),
-        ("CARDBOARD BOX", "Material_Cardboard"),
-        ("LEAD BOX", "Material_Lead"),
-        ("QUANTUM FOAM BOX", "Material_Quantumfoam"),
-        ("VELVET BOX", "Material_Velvet"),
-    ]
-
-    MetricsDF = pd.DataFrame({ #this is for the MODEL INSIGHTS section of the INSIGHTS tab in the output 
-        "Metric": ["R2,", "Beta", "MAE", "MSE", "RMSE"],
-        "Mood": [0, 0, 0, 0, 0],
-        "Sass": [0, 0, 0, 0, 0],
-        "Survival": [0, 0, 0, 0, 0],
-        "ModelInsights": ["N/A", "N/A", "N/A", "N/A", "N/A"]
-        })
-
-    MetricsHeaders = ["METRIC", "MOOD SCORE", "SASS INDEX", "SURVIVAL RATE", "INSIGHTS"] #This will be for row 17 in the INSIGHTS tab on the output
-
-    MetricsRenameMap = { #This is for A18:A22 in the INSIGHTS tab of the output
-        "R2": "Coefficient of Determination:",
-        "Beta": "Intercept:",
-        "MAE": "Mean Absolute Error",
-        "MSE": "Mean Squared Error",
-        "RMSE": "Root Mean Squared Error"
-    }
-
-    #----------------------DATA TAB----------------------
-    DataTabHeaders = ["BOX\nTEMPERATURE\n(Celsius)", "RADIOACTIVE\nDECAY RATE", "PHOTON COUNT\n(PER MINUTE)", "WAVEFUNCTION\nSTABILITY", "ENTANGLEMENT\nINDEX", "OBSERVER\nPRESENT?", "BOX\nMATERIAL", "ACTUAL\nMOOD SCORE", "PREDICTED\nMOOD SCORE", "MOOD SCORE\nRESIDUAL", "ACTUAL\nSASS INDEX", "PREDICTED\nSASS INDEX", "SASS INDEX\nRESIDUAL", "ACTUAL\nSURVIVAL", "PREDICTED\nSURVIVAL", "SURVIVAL RATE\nRESIDUAL"] #Data tab headers in order
-
-    
-
-    #----------------------SCATTER PLOT TAB----------------------
-    ScatterHeaders = ["", "MOOD SCORE", "", "SASS INDEX", "", "SURVIVAL RATE", ""]  #Headers for scatter plot tab - will be inserted into row 2 / A, C, E, and G are blanks
-
-
-    #----------------TARGET / FEATURES
-
-    MoodFeatures = ["BoxTemp", "DecayRate", "Photons", "Stability", "Material"]
-    SassFeatures = ["BoxTemp", "Entanglement"]
-    SurvivalFeatures = ["Observer"]
-
-
-        # Registry of targets and their settings
-
 def normalize_headers(df, AliasMap):
     RenameMap = {}
     for aliases, standard_name in AliasMap.items():
@@ -119,6 +59,66 @@ def normalize_headers(df, AliasMap):
             if alias in df.columns:
                 RenameMap[alias] = standard_name
     return df.rename(columns=RenameMap)
+
+
+
+def StashCoefficients(CoefficientsDF, RegressionMeow): #HELPER FUNCTION
+    for idx, row in CoefficientsDF.iterrows():
+        feat = row["Feature"]
+        # Mood Coeffs
+        if feat in RegressionMeow.FeatureImportances.get("Mood", {}):
+            CoefficientsDF.at[idx, "MoodImportance"] = RegressionMeow.FeatureImportances["Mood"][feat]
+        # Sass Coeffs
+        if feat in RegressionMeow.FeatureImportances.get("Sass", {}):
+            CoefficientsDF.at[idx, "SassImportance"] = RegressionMeow.FeatureImportances["Sass"][feat]
+        # Survival Coeffs
+        if feat in RegressionMeow.FeatureImportances.get("Survival", {}):
+            CoefficientsDF.at[idx, "SurvivalImportance"] = RegressionMeow.FeatureImportances["Survival"][feat]
+    return CoefficientsDF
+
+
+def GetMetricsDF(RegressionMeow):
+    MetricsDF = pd.DataFrame({
+        "Metric": ["R2", "Intercept", "MAE", "MSE", "RMSE", "Accuracy", "Precision", "Recall", "F1", "AUC"],
+        "Mood": [
+            RegressionMeow.Metrics.get("Mood", {}).get("r2", "N/A"),
+            RegressionMeow.Metrics.get("Mood", {}).get("intercept", "N/A"),
+            RegressionMeow.Metrics.get("Mood", {}).get("mae", "N/A"),
+            RegressionMeow.Metrics.get("Mood", {}).get("mse", "N/A"),
+            RegressionMeow.Metrics.get("Mood", {}).get("rmse", "N/A"),
+            RegressionMeow.Metrics.get("Mood", {}).get("accuracy", "N/A"), # FOR SURVIVAL ONLY
+            RegressionMeow.Metrics.get("Mood", {}).get("precision", "N/A"), # FOR SURVIVAL ONLY
+            RegressionMeow.Metrics.get("Mood", {}).get("recall", "N/A"), # FOR SURVIVAL ONLY
+            RegressionMeow.Metrics.get("Mood", {}).get("f1", "N/A"), # FOR SURVIVAL ONLY
+            RegressionMeow.Metrics.get("Mood", {}).get("auc", "N/A"), # FOR SURVIVAL ONLY
+        ],
+        "Sass": [
+            RegressionMeow.Metrics.get("Sass", {}).get("r2", "N/A"),
+            RegressionMeow.Metrics.get("Sass", {}).get("intercept", "N/A"),
+            RegressionMeow.Metrics.get("Sass", {}).get("mae", "N/A"),
+            RegressionMeow.Metrics.get("Sass", {}).get("mse", "N/A"),
+            RegressionMeow.Metrics.get("Sass", {}).get("rmse", "N/A"),
+            RegressionMeow.Metrics.get("Sass", {}).get("accuracy", "N/A"),  # FOR SURVIVAL ONLY
+            RegressionMeow.Metrics.get("Sass", {}).get("precision", "N/A"), # FOR SURVIVAL ONLY 
+            RegressionMeow.Metrics.get("Sass", {}).get("recall", "N/A"), # FOR SURVIVAL ONLY
+            RegressionMeow.Metrics.get("Sass", {}).get("f1", "N/A"), # FOR SURVIVAL ONLY
+            RegressionMeow.Metrics.get("Sass", {}).get("auc", "N/A"), # FOR SURVIVAL ONLY
+        ],
+        "Survival": [
+            RegressionMeow.Metrics.get("Survival", {}).get("r2", "N/A"),
+            RegressionMeow.Metrics.get("Survival", {}).get("intercept", "N/A"),
+            RegressionMeow.Metrics.get("Survival", {}).get("mae", "N/A"),
+            RegressionMeow.Metrics.get("Survival", {}).get("mse", "N/A"),
+            RegressionMeow.Metrics.get("Survival", {}).get("rmse", "N/A"),
+            RegressionMeow.Metrics.get("Survival", {}).get("accuracy", "N/A"),  # FOR SURVIVAL ONLY
+            RegressionMeow.Metrics.get("Survival", {}).get("precision", "N/A"), # FOR SURVIVAL ONLY
+            RegressionMeow.Metrics.get("Survival", {}).get("recall", "N/A"), # FOR SURVIVAL ONLY
+            RegressionMeow.Metrics.get("Survival", {}).get("f1", "N/A"), # FOR SURVIVAL ONLY
+            RegressionMeow.Metrics.get("Survival", {}).get("auc", "N/A"), # FOR SURVIVAL ONLY
+        ],
+        "ModelInsights": [""]*10
+    })
+    return MetricsDF
 
 def main():
     InputDF = pd.read_csv("CafeData.csv")
@@ -159,66 +159,122 @@ def main():
             InputDF[col] = None 
     InputDF = InputDF[CatDataHeaders] 
  
-    print(InputDF)
-    print(ScaledInputDF)
-    print(InputDF["Observer"])
+    CoefficientsDF = pd.DataFrame({ #INSIGHTS TAB - HEADERS WILL NOT BE INCLUDED
+        "Feature": ["BoxTemp", "DecayRate", "Photons", "Stability", "Entanglement", "Observer", "Material_Cardboard", "Material_Lead", "Material_QuantumFoam", "Material_Velvet"], 
+        "MoodImportance": [0, 0, 0, 0, "N/A", "N/A", 0, 0, 0, 0],
+        "SassImportance": [0, "N/A", "N/A", "N/A", 0, "N/A", "N/A", "N/A", "N/A", "N/A"],
+        "SurvivalImportance": ["N/A", "N/A", "N/A", "N/A", "N/A", 0, "N/A", "N/A", "N/A", "N/A"],
+        "FeatureInsights": [""]*10
+        })
+    
 
-
-    RegressionMeow = PurrfectRegression(ScaledInputDF)
+    RegressionMeow = PurrfectRegression(ScaledInputDF) #RUN REGRESSION MODEL ON THE SCALED DF
     RegressionMeow.RunRegression()
 
-    InputDF["PredictedMood"] = RegressionMeow.CatPrediction
+    CoefficientsDF = StashCoefficients(CoefficientsDF, RegressionMeow) #THIS IS FOR THE INSIGHTS TAB
+
+    InputDF["PredictedMood"] = RegressionMeow.CatPrediction #THIS IS TO FILL IN THE REST OF THE DATA TAB
     InputDF["MoodEpsilon"] = InputDF["ActualMood"] - InputDF["PredictedMood"]
     InputDF["PredictedSass"] = RegressionMeow.CatPrediction
     InputDF["SassEpsilon"] = InputDF["ActualSass"] - InputDF["PredictedSass"]
-    
-    InputDF["Observer"] = pd.to_numeric(InputDF["Observer"], errors="coerce").fillna(0).astype(int) #OBSERVER = NUMERIC
 
-    InputDF["ActualSurvival"] = InputDF["ActualSurvival"].replace({"": None, None: None}).astype(object) #NORMALIZE BLANKS/NON AND MARK UNOBSERVED ROWS AS UNKNOWN
-    mask_unobserved = InputDF["Observer"] == 0
-    InputDF.loc[mask_unobserved, "ActualSurvival"] = "Unknown"
+    InputDF["Observer"] = pd.to_numeric(InputDF["Observer"], errors="coerce").fillna(0).astype(int) #CONVERT OBSERVER TO NUMERIC
 
-    InputDF["ActualSurvivalNum"] = pd.to_numeric(InputDF["ActualSurvival"].replace({"Unknown": None}), errors="coerce").astype(float) #CREATE NUMERIC COLUMN FOR MODELING - UNKNOWNS BECME NAN
+    InputDF["ActualSurvival"] = InputDF["ActualSurvival"].replace({"": None, None: None}) #IF OBSERVER IS NOT PRESENT, SURVIVAL IS UNKNOWN
+    InputDF.loc[InputDF["Observer"] == 0, "ActualSurvival"] = "Unknown"
 
-    mask_observed = (InputDF["Observer"] == 1) & InputDF["ActualSurvivalNum"].notna() #MASK NUMERIC COLUMN
-    mask_unobserved = InputDF["Observer"] == 0
-
-    InputDF["PredictedSurvival"] = None #ENSURE EXISTENCE OF COLUMNS
-    InputDF["SurvivalEpsilon"] = None
-
-    InputDF.loc[mask_unobserved, "PredictedSurvival"] = "Unknown" #DISPLAY VALUES FOR UNOBSERVED ROWS
-    InputDF.loc[mask_unobserved, "SurvivalEpsilon"] = "Unknown"
-
-    preds = RegressionMeow.Predictions.get("Survival")  # GET PREDICTIONS - pd SERIES 
-    if preds is None:
-        preds = pd.Series([None] * len(InputDF), index=InputDF.index)
-    if not isinstance(preds, pd.Series): #IF PREDICTIONS IS NUMPY ARRAY -> CONVERT TO SERIES W/O CHANGING INDEX
-        preds = pd.Series(preds, index=InputDF.index)
-
-    InputDF.loc[mask_observed, "PredictedSurvival"] = preds.loc[mask_observed].astype(float) #NUMERIC PREDICTIONS AND COMPUTE RESIDUALS
-    InputDF.loc[mask_observed, "SurvivalEpsilon"] = (
-        InputDF.loc[mask_observed, "ActualSurvivalNum"].astype(float)
-        - InputDF.loc[mask_observed, "PredictedSurvival"].astype(float)
+    InputDF["ActualSurvival"] = InputDF["ActualSurvival"].apply( #CONVERT TO NUMERIC IF OBSERVER IS PRESENT
+        lambda x: float(x) if str(x).replace(".", "", 1).isdigit() else "Unknown"
     )
 
-    print(InputDF)
+    PredictedSurvival = RegressionMeow.Predictions.get("Survival") #PREDICTED SURVIVAL
+    if PredictedSurvival is None:
+        PredictedSurvival = pd.Series([None] * len(InputDF), index=InputDF.index)
+    if not isinstance(PredictedSurvival, pd.Series):
+        PredictedSurvival = pd.Series(PredictedSurvival, index=InputDF.index)
+
+    InputDF["PredictedSurvival"] = PredictedSurvival  # NUMERIC VALUE
+    InputDF["PredictedSurvival"] = InputDF["PredictedSurvival"].astype("object")  # TO ALLOW FOR STRINGS AND NUMBERS
+    InputDF.loc[InputDF["Observer"] == 0, "PredictedSurvival"] = "Unknown"
+
+    def GetSurvivalEpsilon(row): #SURVIVAL RESIDUAL
+        if row["Observer"] == 0 or row["PredictedSurvival"] == "Unknown" or row["ActualSurvival"] == "Unknown":
+            return "Unknown"
+        try:
+            return float(row["ActualSurvival"]) - float(row["PredictedSurvival"])
+        except Exception:
+            return "Unknown"
+
+    InputDF["SurvivalEpsilon"] = InputDF.apply(GetSurvivalEpsilon, axis=1).astype("object")
+
+    # --- Observer display cleanup ---
+    InputDF["Observer"] = InputDF["Observer"].map({1: "YES", 0: "NO"})
 
 
-    if "ActualSurvivalNum" in InputDF.columns and "ActualSurvival" in InputDF.columns:
-        InputDF = InputDF.copy() #SAFETY COPY
-        mask_known_num = InputDF["ActualSurvivalNum"].notna() #USE NUMBERS WHERE POSSIBLE, IF NOT, USE UNKNOWN
-        InputDF["ActualSurvival_Display"] = InputDF["ActualSurvival"].astype(object) #SET DISPLAY COLUMN TO TEXTUAL VALUES (including "Unknown")
-        InputDF.loc[mask_known_num, "ActualSurvival_Display"] = InputDF.loc[mask_known_num, "ActualSurvivalNum"] #OVERWRITE NUMERIC ONLY VALUS 
-        InputDF["ActualSurvival"] = InputDF["ActualSurvival_Display"] #REPLACE OF COLUMN WITH DISPLAY COLUMN
-        InputDF = InputDF.drop(columns=["ActualSurvival_Display", "ActualSurvivalNum"])
 
-
-
-
-        # Prepare Excel
-    ExcelMeow = PurrfectWB(InputDF, OutputPath, RegressionMeow.ScatterPlots, RegressionMeow.RegressionPlots)
+    ExcelMeow = PurrfectWB(InputDF, OutputPath, RegressionMeow.ScatterPlots, RegressionMeow.RegressionPlots, RegressionMeow.FeatureImportances)
     ExcelMeow.DataKitten()
     ExcelMeow.ExcelLitter(OutputPath)
+    ExcelMeow.InsightsKitten()
+
+
+    MetricsDF = GetMetricsDF(RegressionMeow) #GET METRICS INTO DF FOR INSIGHTS TAB
+    r2_mood = RegressionMeow.Metrics["Mood"]["r2"]
+    intercept_mood = RegressionMeow.Metrics["Mood"]["intercept"]
+    mae_mood = RegressionMeow.Metrics["Mood"]["mae"]
+    mse_mood = RegressionMeow.Metrics["Mood"]["mse"]
+    rmse_mood = RegressionMeow.Metrics["Mood"]["rmse"]
+
+    r2_sass = RegressionMeow.Metrics["Sass"]["r2"]
+    intercept_sass = RegressionMeow.Metrics["Sass"]["intercept"]
+    mae_sass = RegressionMeow.Metrics["Sass"]["mae"]
+    mse_sass = RegressionMeow.Metrics["Sass"]["mse"]
+    rmse_sass = RegressionMeow.Metrics["Sass"]["rmse"]
+
+    accuracy_survival = RegressionMeow.Metrics["Survival"]["accuracy"]
+    precision_survival = RegressionMeow.Metrics["Survival"]["precision"]
+    recall_survival = RegressionMeow.Metrics["Survival"]["recall"]
+    f1_survival = RegressionMeow.Metrics["Survival"]["f1"]
+    auc_survival = RegressionMeow.Metrics["Survival"]["auc"]
+
+    if intercept_mood > 0:
+        MoodDefault = "Quantum Bliss 😸✨"
+    else:
+        MoodDefault = "existential dread 😿"
+
+    if intercept_sass > 0:
+        SassDefault = "Less sass"
+    else:
+        SassDefault = "Sass Pants"
+
+
+    MetricsDF = pd.DataFrame({
+        "Metric": ["R2", "Beta", "MAE", "MSE", "RMSE", "Accuracy", "Precision", "Recall", "F1", "AUC"],
+        "Mood": [r2_mood, intercept_mood, mae_mood, mse_mood, rmse_mood,"N/A", "N/A", "N/A", "N/A", "N/A"],
+        "Sass": [r2_sass, intercept_sass, mae_sass, mse_sass, rmse_sass, "N/A", "N/A", "N/A", "N/A", "N/A"],
+        "Survival": ["N/A", "N/A", "N/A", "N/A", "N/A", accuracy_survival, precision_survival, recall_survival, f1_survival, auc_survival],
+        "ModelInsights": [
+            f"Model explains: {r2_mood * 100:.2f}% of mood / {r2_sass * 100:.2f}% of sass variation 💅",
+            f"Cats default to {MoodDefault} and {SassDefault}",
+            f"On average, predictions miss by {mae_mood:.2f} mood points and {mae_sass:.2f} Sass points 🐱🔮",
+            f"Model errors (squared) average {mse_mood:.2f} for mood and {mse_sass:.2f} for Sass",
+            f"Predictions are typically within ±{rmse_mood:.2f} of true cat mood and ±{rmse_sass:.2f} of true cat sass 😻✅",
+            f"Survival Accuracy: {accuracy_survival}",
+            f"Survival Precision: {precision_survival}",
+            f"Survival Recall: {recall_survival}",
+            f"Survival F1: {f1_survival}",
+            f"Survival auc: {auc_survival}"
+        ]
+    })
+
+
+
+
+
+    ExcelMeow.GetCoefficientsAndMetrics(CoefficientsDF, MetricsDF)
+    ExcelMeow.CatWisdom(CoefficientsDF, MetricsDF)
+
+
 
 if __name__ == "__main__":
     main()

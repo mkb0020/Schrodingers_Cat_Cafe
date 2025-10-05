@@ -5,9 +5,11 @@ from openpyxl.drawing.image import Image
 from io import BytesIO
 import pandas as pd
 from RegressionCat import PurrfectRegression
-from PIL import Image as PILImage
-import tempfile
 import os
+import tempfile
+import atexit
+
+
 
 
 
@@ -183,7 +185,7 @@ class TipToe:
     def InsightsDrip(self):
         FirstBorderRow = 1
         FirstColumn = 1
-        LastRow = 22
+        LastRow = 27
         LastColumn = 5
         ThiccColumns = ["E"]
         ThiccWidth = 80
@@ -192,7 +194,7 @@ class TipToe:
         FirstFeatureRow = 3
         LastFeatureRow = 14
         FisrtMetricsRow = 16
-        LastMetricsRow = 22
+        LastMetricsRow = 27
         self.Title(FirstBorderRow)
         self.SetColumnWidths(ThiccColumns, ThiccWidth, SpacerColumns, SpacerWidth)
         self.ws.column_dimensions["A"].width = 30
@@ -200,6 +202,39 @@ class TipToe:
         self.Thicc(FirstFeatureRow, LastFeatureRow, FirstColumn, LastColumn)
         self.Thicc(FisrtMetricsRow, LastMetricsRow, FirstColumn, LastColumn)
         
+    def MetricsDrip(self):
+        ws = self.ws
+        FirstRow1 = 5
+        LastRow1 = 15
+        FirstRow2 = 18
+        LastRow2 = 28
+        FirstColumn = 2
+        LastColumn = 5
+        for col in range(FirstColumn, LastColumn):
+            for row in range(FirstRow1, LastRow1):
+                cell = self.ws.cell(row, col)
+                self.Flex(cell, **self.VanillaGorillaMids)
+            for row in range(FirstRow2, LastRow2):
+                cell = self.ws.cell(row, col)
+                self.Flex(cell, **self.VanillaGorillaMids)
+
+    def MetricsDripChopped(self):
+        ws = self.ws
+        FirstRow1 = 5
+        LastRow1 = 15
+        FirstRow2 = 18
+        LastRow2 = 28
+        FirstColumn = 5
+        LastColumn = 5
+        for row in range(FirstRow1, LastRow1):
+            for col in range(FirstColumn, LastColumn):
+                cell = self.ws.cell(row, col)
+                self.Flex(cell, **self.VanillaGorillaLefts)
+        for row in range(FirstRow2, LastRow2):
+            for col in range(FirstColumn, LastColumn):
+                cell = self.ws.cell(row, col)
+                self.Flex(cell, **self.VanillaGorillaLefts)
+
     def DataDrip(self):
         ws = self.ws
         FirstBorderRow = 1
@@ -275,6 +310,8 @@ class TipToe:
 
     def Drip(self):
         self.InsightsDrip()
+        self.MetricsDrip()
+        self.MetricsDripChopped()
         self.DataDrip()
         self.PlotsDrip()
         self.wb.save(self)
@@ -289,7 +326,7 @@ def CreateWB(OutputPath, TabNames): #HELPER TO CREATE WORKBOOK
     return wb
 
 class PurrfectWB:
-    def __init__(self, df, OutputPath, ScatterPlots, RegressionPlots):
+    def __init__(self, df, OutputPath, ScatterPlots, RegressionPlots, Importances):
         self.df = df
         self.OutputPath = OutputPath
         self.wb = openpyxl.Workbook()
@@ -302,15 +339,14 @@ class PurrfectWB:
         for name in self.sheets: # CREATE TABS
             self.ws[name] = self.wb.create_sheet(title=name)
         self.wb.save(self.OutputPath)         # SAVE IMMEDIATELY SO IT'S WRITTEN ONTO DISK
-
-        
         self.ScatterPlots = ScatterPlots
         self.RegressionPlots = RegressionPlots
-        self.TempPics = []
-
-
-    def SAVE(self): #SAVE CURRENT WB STATE
+        self.Importances = Importances
+        
+    def SAVE(self):
         self.wb.save(self.OutputPath)
+        if hasattr(self.wb, "_image_streams"):
+            self.wb._image_streams.clear()
 
     def GetWS(self, name):
         """Get a worksheet by name safely."""
@@ -324,52 +360,50 @@ class PurrfectWB:
         InsightsWS.merge_cells("A1:E1")
         InsightsWS.merge_cells("A2:E2") #SPACER
 
-        Headers = [("A3", "FEATURE"), ("B3", "IMPORTANCE"), ("E3", "INSIGHTS")] #MAIN HEADERS
+        Headers = [("A3", "FEATURE"), ("B3", "IMPORTANCE"), ("E3", "INSIGHTS")]
         for cell, text in Headers:
             InsightsWS[cell] = text
             TipToe.Flex(InsightsWS[cell], **TipToe.PurpleIconChopped)
         InsightsWS.merge_cells("B3:D3")
 
-        for col, text in [("B4", "MOOD"), ("C4", "SASS"), ("D4", "SURVIVAL")]: #SUB HEADERS
+        for col, text in [("B4", "MOOD"), ("C4", "SASS"), ("D4", "SURVIVAL")]:
             InsightsWS[col] = text
             TipToe.Flex(InsightsWS[col], **TipToe.TheWhiteWest)
-        for col in ["A4", "E4"]: #BOOK-ENDS
+        for col in ["A4", "E4"]:
             InsightsWS[col] = ""
             TipToe.Flex(InsightsWS[col], **TipToe.TheWhiteWest)
 
-        Features = [ #FEATURE LIST
-            "BOX TEMP (Celsius)",
-            "RADIOACTIVE DECAY RATE",
-            "PHOTON COUNT (per min)",
-            "WAVEFUNCTION STABILITY",
-            "ENTANGLEMENT INDEX",
-            "OBSERVER PRESENCE",
-            "CARDBOARD BOX",
-            "LEAD BOX",
-            "QUANTUM FOAM BOX",
-            "VELVET BOX",
+        Features = [
+            "BOX TEMP (Celsius):", "RADIOACTIVE DECAY RATE:", "PHOTON COUNT (per min):",
+            "WAVEFUNCTION STABILITY:", "ENTANGLEMENT INDEX:", "OBSERVER PRESENCE:",
+            "CARDBOARD BOX:", "LEAD BOX:", "QUANTUM FOAM BOX:", "VELVET BOX:",
         ]
         for i, label in enumerate(Features, start=5):
             InsightsWS[f"A{i}"] = label
             TipToe.Flex(InsightsWS[f"A{i}"], **TipToe.CoolBlueJewels)
 
-        InsightsWS.merge_cells("A15:E15")  #SPACER
+        InsightsWS.merge_cells("A15:E15")
         InsightsWS["A16"] = "MODEL INSIGHTS"
         TipToe.Flex(InsightsWS["A16"], **TipToe.PurpleIconChopped)
         InsightsWS.merge_cells("A16:E16")
 
-        MetricLabels = [ #MODEL INSIGHTS METRICS
+        MetricLabels = [
             "Coefficient of determination:",
             "Intercept:",
             "Mean Absolute Error:",
             "Mean Squared Error:",
-            "Root Mean Squared Error:"
+            "Root Mean Squared Error:",
+            "Accuracy:",
+            "Precsion:",
+            "Recall:",
+            "F1:",
+            "AUC:"
         ]
         for i, metric in enumerate(MetricLabels, start=18):
             InsightsWS[f"A{i}"] = metric
             TipToe.Flex(InsightsWS[f"A{i}"], **TipToe.CoolBlueJewels)
 
-        MetricHeaders = [ # MODEL INSIGHTS ROW HEADERS ( ROW 17)
+        MetricHeaders = [
             ("A17", "METRIC"),
             ("B17", "MOOD"),
             ("C17", "SASS"),
@@ -380,9 +414,136 @@ class PurrfectWB:
             InsightsWS[col] = text
             TipToe.Flex(InsightsWS[col], **TipToe.TheWhiteWest)
 
-        Drip = TipToe(self.wb, InsightsWS) #STYLE SHEET
+        Drip = TipToe(self.wb, InsightsWS)
+        Drip.MetricsDrip()
         Drip.InsightsDrip()
+       
+
+    def GetCoefficientsAndMetrics(self, CoefficientsDF=None, MetricsDF=None):
+        ws = self.GetWS("INSIGHTS")
+        if CoefficientsDF is not None:
+            for i, row in CoefficientsDF.iterrows():
+                ws[f"B{i+5}"] = row["MoodImportance"]
+                ws[f"C{i+5}"] = row["SassImportance"]
+                ws[f"D{i+5}"] = row["SurvivalImportance"]
+        if MetricsDF is not None:
+            for i, row in MetricsDF.iterrows():
+                rownum = 18 + i
+                ws[f"B{rownum}"] = row["Mood"]
+                ws[f"C{rownum}"] = row["Sass"]
+                ws[f"D{rownum}"] = row["Survival"]
+                ws[f"E{rownum}"] = row["ModelInsights"]
         self.SAVE()
+
+    def CatWisdom(self, CoefficientsDF, MetricsDF):
+        MoodFeatures = ["BoxTemp", "DecayRate", "Photons", "Stability",
+                        "Material_Cardboard", "Material_Lead", "Material_Velvet", "Material_QuantumFoam"]
+        SassFeatures = ["BoxTemp", "Entanglement"]
+        SurvivalFeatures = ["Observer"] #FEATURE GROUPINGS
+
+        for feature in MoodFeatures: #MOOD
+            MoodCoefficient = float(self.Importances.get("Mood", {}).get(feature, 0.0))
+            if feature == "BoxTemp":
+                if MoodCoefficient >= 0.6:
+                    MoodInsight = "Warm boxes put cats in good moods 😻🔥"
+                elif MoodCoefficient >= -0.5:
+                    MoodInsight = "Cats moods are not affected by temperature 😐"
+                elif MoodCoefficient >= -1.9:
+                    MoodInsight = "Cold boxes put cats in bad moods 🙀❄️"
+
+
+            elif feature == "DecayRate":
+                if MoodCoefficient >= 0.6:
+                    MoodInsight = "Cats LOVE risky situations 😹☢️"
+                elif MoodCoefficient >= -0.5:
+                    MoodInsight = "Cats are neutral about radioactive chaos 😐"
+                else:
+                    MoodInsight = "Cats like to play it safe 🙀⚛️"
+
+            elif feature == "Photons":
+                if MoodCoefficient >= 0.6:
+                    MoodInsight = "Cats LOVE fast-paced quantum activity 😹⚡"
+                elif MoodCoefficient >= -0.5:
+                    MoodInsight = "Cats ignore the flickering photons 😐"
+                else:
+                    MoodInsight = "Cats prefer a chill quantum vibe 😸💤"
+
+            elif feature == "Stability":
+                if MoodCoefficient >= 0.6:
+                    MoodInsight = "Cats LOVE feeling stable 😺✨"
+                elif MoodCoefficient >= -0.5:
+                    MoodInsight = "Cats are indifferent to their stability 😐"
+                else:
+                    MoodInsight = "Cats don’t like instability 🙀⚛️"
+
+            else:  # BOX MATERIALS
+                if MoodCoefficient >= 2.0:
+                    MoodInsight = f"Cats LOVE {feature.replace('Material_', '')} boxes 😻"
+                elif MoodCoefficient >= 0.6:
+                    MoodInsight = f"Cats like {feature.replace('Material_', '')} boxes 😺"
+                elif MoodCoefficient >= -0.5:
+                    MoodInsight = f"Cats are indifferent to {feature.replace('Material_', '')} boxes 😐"
+                elif MoodCoefficient >= -1.9:
+                    MoodInsight = f"Cats dislike {feature.replace('Material_', '')} boxes 🙀"
+                else:
+                    MoodInsight = f"Cats HATE {feature.replace('Material_', '')} boxes 😾"
+
+            CoefficientsDF.loc[CoefficientsDF["Feature"] == feature, "MoodImportance"] = MoodCoefficient
+            CoefficientsDF.loc[CoefficientsDF["Feature"] == feature, "FeatureInsights"] += MoodInsight
+
+        for feature in SassFeatures: #SASS
+            SassCoefficient = float(self.Importances.get("Sass", {}).get(feature, 0.0))
+            if feature == "BoxTemp":
+                if SassCoefficient >= 0.6:
+                    SassInsight = "Cats get sassy in higher box temps 😺🔥"
+                elif SassCoefficient >= -0.5:
+                    SassInsight = "Temperature doesn’t affect sass 😐"
+                else:
+                    SassInsight = "Too cold to sass 🙀❄️"
+            elif feature == "Entanglement":
+                if SassCoefficient >= 0.6:
+                    SassInsight = "External systems make cats extra sassy 😹⚛️"
+                elif SassCoefficient >= -0.5:
+                    SassInsight = "Cats are neutral about entanglement 😐"
+                else:
+                    SassInsight = "Cats don’t care about quantum links 😾"
+
+            CoefficientsDF.loc[CoefficientsDF["Feature"] == feature, "SassImportance"] = SassCoefficient
+            ExistingInsight = CoefficientsDF.loc[CoefficientsDF["Feature"] == feature, "FeatureInsights"].values[0] #ADD TO EXISTING INSIGHT FOR MOOD / BOX TEMP
+            AdditionalInsight = f"{ExistingInsight} | {SassInsight}" if ExistingInsight else SassInsight
+            CoefficientsDF.loc[CoefficientsDF["Feature"] == feature, "FeatureInsights"] = AdditionalInsight
+
+        for feature in SurvivalFeatures: #SURVIVAL
+            SurvivalCoefficient = float(self.Importances.get("Survival", {}).get(feature, 0.0))
+            if SurvivalCoefficient >= 0.6:
+                SurvivalInsight = "Cats LOVE the head pats 😻🙌"
+            elif SurvivalCoefficient >= -0.5:
+                SurvivalInsight = "Cats allow humans to exist 😺"
+            else:
+                SurvivalInsight = "Just leave them alone 😾📦"
+
+            CoefficientsDF.loc[CoefficientsDF["Feature"] == feature, "SurvivalImportance"] = SurvivalCoefficient
+            CoefficientsDF.loc[CoefficientsDF["Feature"] == feature, "FeatureInsights"] += f"{SurvivalInsight}"
+
+        try: #WRITE TO EXCEL
+            ws = self.wb["INSIGHTS"]  # INSIGHTS TAB
+        except KeyError:
+            ws = self.wb.create_sheet("INSIGHTS")
+
+        start_row = 5
+        for i, text in enumerate(CoefficientsDF["FeatureInsights"], start=start_row):
+            ws[f"E{i}"] = text
+
+
+        start_row = 18
+        for i, text in enumerate(MetricsDF["ModelInsights"], start=start_row):
+            ws[f"E{i}"] = text
+      
+
+        Drip = TipToe(self.wb, ws)
+        Drip.MetricsDripChopped()
+        self.SAVE()
+
 
     def DataKitten(self, ws=None):
         ws = self.GetWS("DATA")
@@ -390,32 +551,44 @@ class PurrfectWB:
         for i, header in enumerate(DataTabHeaders, start=1): #PRETTY HEADERS
             cell = ws.cell(row=1, column=i, value=header)
         
-        for r, row in enumerate(self.df.itertuples(index=False), start=2): #Paste DF rows by row into DATA tab
+        for r, row in enumerate(self.df.itertuples(index=False), start=2): #PASTE DF INTO EXCEL / DATA TAB
             for c, value in enumerate(row, start=1):
                 ColumnName = self.df.columns[c - 1] #OBSERVER COLUMN (YES / NO)
                 if ColumnName == "Observer":
-                    if pd.isna(value):  # NAN FOR MISSING VALUES
-                        display_value = ""
-                    else:
-                        display_value = "YES" if int(value) == 1 else "NO"
+                    GlamObserver = str(value) if pd.notna(value) else ""
                 else:
-                    display_value = value
-                ws.cell(row=r, column=c, value=display_value)
+                    GlamObserver = value
+                ws.cell(row=r, column=c, value=GlamObserver)
         Drip = TipToe(self.wb, ws)
         Drip.DataDrip()
         self.SAVE()
 
-    def PlaceImage(self, ws, fig, AnchorCell, HeightIN, WidthIN):
-        FosterCat = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-        TempName = FosterCat.name
-        FosterCat.close()
-        fig.savefig(TempName, format="png", dpi=96, bbox_inches="tight")
-        img = Image(TempName)
-        img.width = int(WidthIN * 96)
-        img.height = int(HeightIN * 96)
-        img.anchor = AnchorCell
-        ws.add_image(img)
-        self.TempPics.append(TempName)
+
+
+
+    def PlaceImage(self, ws, fig, AnchorCell, HeightIN, WidthIN): #SAFELY SAVES MATPLOTLIB AS TEMP PNG, INSERTS INTO APPROPRIATE TAB, HANDLES MISSING IMAGE ERRORS GRACEFULLY, DEFERS DELETION OF TEMPS UNTIL AFTER SAVE
+        global atexit
+        TempPath = None
+        try: #CREATE A  TEMP FILE BUT DON"T AUTO-DELETE - WINDOWS LOCKS
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+                TempPath = tmpfile.name
+            fig.savefig(TempPath, format="png", dpi=96, bbox_inches="tight")  #SAVE FIGURE
+            #print(f"[DEBUG] Inserted {TempPath}")
+            if os.path.exists(TempPath) and os.path.getsize(TempPath) > 0: #VERIFY AND INSERT
+                img = Image(TempPath)
+                img.width = int(WidthIN * 96)
+                img.height = int(HeightIN * 96)
+                img.anchor = AnchorCell
+                ws.add_image(img)
+            else:
+                ws[AnchorCell] = "Image Not Found"
+            if TempPath: #CLEAN UP TEMPS AFTER PROGRAM EXITS
+                atexit.register(lambda path=TempPath: os.path.exists(path) and os.remove(path))
+        except Exception as e:
+            ws[AnchorCell] = f"Image Not Found ({e.__class__.__name__})"
+            #print(f"[DEBUG] Inserted {TempPath}")
+
+
 
     def PlaceScatter(self, ws, fig, AnchorCell, HeightIN, WidthIN):
         self.PlaceImage(ws, fig, AnchorCell, HeightIN, WidthIN)
@@ -441,7 +614,7 @@ class PurrfectWB:
         
         Drip = TipToe(self.wb, ScatterWS)
         Drip.PlotsDrip()
-        self.SAVE()
+        
 
     def MoodResultsKitten(self, ws=None):
         MoodWS = self.wb["MOOD RESULTS"]
@@ -500,7 +673,7 @@ class PurrfectWB:
 
         Drip = TipToe(self.wb, MoodWS)
         Drip.PlotsDrip()
-        self.SAVE()
+        
 
 
     def SassResultsKitten(self, ws=None):
@@ -542,26 +715,18 @@ class PurrfectWB:
 
         Drip = TipToe(self.wb, SurvivialWS)
         Drip.PlotsDrip()
-        self.SAVE()
+        
 
-    def DeleteTemps(self):
-        for path in getattr(self, "TempPics", []):
-            try:
-                os.remove(path)
-            except Exception:
-                pass
-        self.TempPics = []
 
         
     def ExcelLitter(self, OutputPath):
         self.InsightsKitten() 
-        #self.CatWisdom() #I will define this later
+        #self.CatWisdom()
         #self.DataKitten() 
         self.ScatterKitten() 
         self.MoodResultsKitten()
         self.SassResultsKitten()
         self.SurvivalResultsKitten()
         self.SAVE()
-        self.DeleteTemps()
 
 
