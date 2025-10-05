@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score, accuracy_score
+from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score
+
 
 
 class PurrfectRegression:
@@ -16,7 +18,7 @@ class PurrfectRegression:
         self.Linears = {}    #ONLY LINEAR MODELS KEYED BY TARGET WHERE APPLICABLE          
         self.Predictions = {}  #PER TARGET PREDICTIONS (ARRAY)         
         self.CatPrediction = None       
-        self.EncodedDF = None
+        self.EncodedDF = None #DF FOR ONE HOT ENCODING MATERIALS
         self.Metrics = {} # METRICS PER TARGET
         self.FeatureImportances = {} # COEFFICIENT PER TARGET (DICT OF DICTS) 
         self.InsightFeatures = [ # INSIGHTS FEATURE ORDER FOR EXCEL / INSIGHTS TAB
@@ -48,17 +50,9 @@ class PurrfectRegression:
             "Observer_Survival": "Observer Presence vs Survival Rate",
         }
 
-    def RunRegression(self):
-        """
-        High level single-call method to produce:
-         - scatter plots
-         - fitted models (Mood, Sass, Survival)
-         - regression plots
-         - metrics and feature importances
-        """
-        self.PrepEncoding()
+    def RunRegression(self): #CREATES SCATTER PLOTS, FITS LINEAR REGRESSIN MODELS, GETS METRICS / FEATURE IMPORTANCES / COEFFICIENTS
+        self.ItsGettingHotInHere()
         self.GetScatters()
-        # LINEAR REGRESSION FITTINGS
         self.MoodFitting()
         self.SassFitting()
         self.SurvivalFitting()
@@ -90,10 +84,7 @@ class PurrfectRegression:
         }
 
         # --- HELPERS ---
-    def PrepEncoding(self):
-        """
-        One-hot encode Material and ensure stable expected material dummies exist.
-        """
+    def ItsGettingHotInHere(self): #ONE HOT ENCODING FOR BOX MATERIALS
         df = self.df.copy()
         if "Material" in df.columns:
             EncodedDF = pd.get_dummies(df, columns=["Material"], prefix="Material")
@@ -200,11 +191,7 @@ class PurrfectRegression:
             StashScatter("Observer Presence vs Survival Rate", fig)
 
 # --- HELPERS FOR MODEL FITTING
-    def MoodFitting(self):
-        """
-        Fit LinearRegression for ActualMood using BoxTemp, DecayRate, Photons, Stability, and material dummies.
-        Stores model under key 'Mood'.
-        """
+    def MoodFitting(self): # STORES MODEL UNDER KEY MOOD - LINEAR REGRESSION FOR ACTUAL MOOD USING BOX TEMP, DECAY RATE, PHOTON COUNT, STABILITY, AND ONE-HOT-ENCODED MATERIALS.  
         if "ActualMood" not in self.EncodedDF.columns:
             self.Models["Mood"] = None
             return
@@ -235,6 +222,11 @@ class PurrfectRegression:
             "mae": mae,
             "mse": mse,
             "rmse": rmse,
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "f1": "N/A",
+            "auc": "N/A"
         }
         Coefficient = list(model.coef_)
         self.FeatureImportances["Mood"] = {feat: float(coef) for feat, coef in zip(X.columns.tolist(), Coefficient)}
@@ -242,17 +234,12 @@ class PurrfectRegression:
         self.GetLinears(X["DecayRate"], y, "Decay Rate vs Mood Score", figsize=(6.1, 3.02))
         self.GetLinears(X["Photons"], y, "Photon Count vs Mood Score", figsize=(6.1, 3.02))
         self.GetLinears(X["Stability"], y, "Stability vs Mood Score", figsize=(6.1, 3.02))
-        #DUMMYS FOR MATERIALS / ONE HOT ENCODED
-        self.GetLinears(X["Material_Cardboard"], y, "Cardboard Box vs Mood Score", figsize=(2.95, 2.2))
-        self.GetLinears(X["Material_Lead"], y, "Lead Box vs Mood Score", figsize=(2.95, 2.2))
-        self.GetLinears(X["Material_QuantumFoam"], y, "Quantum Foam Box vs Mood Score", figsize=(2.95, 2.2))
-        self.GetLinears(X["Material_Velvet"], y, "Velvet Box vs Mood Score", figsize=(2.95, 2.2))
+        self.GetLinears(X["Material_Cardboard"], y, "Cardboard Box vs Mood Score", figsize=(2.95, 2.2)) #ONE-HOT-ENCODED MATERIALS
+        self.GetLinears(X["Material_Lead"], y, "Lead Box vs Mood Score", figsize=(2.95, 2.2)) #ONE-HOT-ENCODED MATERIALS
+        self.GetLinears(X["Material_QuantumFoam"], y, "Quantum Foam Box vs Mood Score", figsize=(2.95, 2.2)) #ONE-HOT-ENCODED MATERIALS
+        self.GetLinears(X["Material_Velvet"], y, "Velvet Box vs Mood Score", figsize=(2.95, 2.2)) #ONE-HOT-ENCODED MATERIALS
 
-    def SassFitting(self):
-        """
-        Fit LinearRegression for ActualSass using BoxTemp and Entanglement.
-        Stores model under key 'Sass'.
-        """
+    def SassFitting(self): # STORES MODEL UNDER KEY SASS - LINEAR REGRESSION FOR ACTUAL SASS USING BOX TEMP, AND ENTANGLEMENT INDEX
         if "ActualSass" not in self.EncodedDF.columns:
             self.Models["Sass"] = None
             return
@@ -277,53 +264,63 @@ class PurrfectRegression:
             "mae": mae,
             "mse": mse,
             "rmse": rmse,
+            "accuracy": "N/A",
+            "precision": "N/A",
+            "recall": "N/A",
+            "f1": "N/A",
+            "auc": "N/A"
         }
         # --- COEFFICIENTS ---
         Coefficient = list(model.coef_)
         self.FeatureImportances["Sass"] = {feat: float(coef) for feat, coef in zip(X.columns.tolist(), Coefficient)}
-
         # --- REGRESSION PLOTS ---
         self.GetLinears(X["BoxTemp"], y, "Box Temperature vs Sass Index", figsize=(5.78, 3.22))
         self.GetLinears(X["Entanglement"], y, "Entanglement vs Sass Index", figsize=(5.78, 3.22))
 
     def SurvivalFitting(self):
-        """
-        Fit LogisticRegression for ActualSurvival using Observer only.
-        Stores model under key 'Survival'. Predictions are probabilities.
-        """
         if "ActualSurvival" not in self.EncodedDF.columns or "Observer" not in self.EncodedDF.columns:
             self.Models["Survival"] = None
             return
 
-        
-        df = self.EncodedDF.copy()  # KEEP ONLY ROWS WITH 1's and 0's
-        if "ActualSurvival" in df.columns: # COERCE AGAIN
-            df["ActualSurvival"] = pd.to_numeric(df["ActualSurvival"], errors="coerce")
-        df = df[df["ActualSurvival"].isin([0, 1])] #
-        if df.empty: #GUARD
+        df = self.EncodedDF.copy()
+        df["ActualSurvival"] = pd.to_numeric(df["ActualSurvival"], errors="coerce")
+        df = df[df["ActualSurvival"].isin([0, 1])]
+        if df.empty:
             self.Models["Survival"] = None
             return
 
-
         X = df[["Observer"]].astype(float)
         y = df["ActualSurvival"].astype(int)
-        model = LogisticRegression(solver="liblinear").fit(X, y)  # SOLVER SET
+        model = LogisticRegression(solver="liblinear").fit(X, y)
         PredictionsLabel = model.predict(X)
         PredictionsProb = model.predict_proba(X)[:, 1]
-        Accuracy = float(accuracy_score(y, PredictionsLabel))
 
-        self.Models["Survival"] = model
-        self.Predictions["Survival"] = pd.Series(PredictionsProb, index=df.index)
-        self.Metrics["Survival"] = {"accuracy": Accuracy}
-        Coefficient = float(model.coef_.ravel()[0])         #COEFFIEICNTS = IMPORTANCES
-        self.FeatureImportances["Survival"] = {"Observer": Coefficient}
-        self.GetLinears(X["Observer"], y, "Observer Presence vs Survival Rate", figsize=(6.88, 3.63), logistic=True)         # OBSERVER VS SURVIVAL - REGRESSION - /  OG FULL EncodedDF TO ALIGN INDEX
+        # --- METRICS ---
+        accuracy = float(accuracy_score(y, PredictionsLabel))
+        precision = float(precision_score(y, PredictionsLabel, zero_division=0))
+        recall = float(recall_score(y, PredictionsLabel, zero_division=0))
+        f1 = float(f1_score(y, PredictionsLabel, zero_division=0))
+        auc = float(roc_auc_score(y, PredictionsProb))
 
-    
-    def GetLinears(self, x_series, y_series, title, figsize=(4.0, 2.4), logistic=False): # --- PLOTTING UTILITY ---
-        """
-        Create and stash a regression-style plot. figsize is (width_in_inches, height_in_inches).
-        """
+        self.Metrics["Survival"] = {
+            "r2": "N/A",
+            "intercept": "N/A",
+            "mae": "N/A",
+            "mse": "N/A",
+            "rmse": "N/A",
+            "accuracy": accuracy,
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+            "auc": auc
+        }
+
+        coef = float(model.coef_.ravel()[0])  #FEATURE IMPORTANCE --
+        self.FeatureImportances["Survival"] = {"Observer": coef}
+        self.Predictions["Survival"] = pd.Series(PredictionsProb, index=df.index) #SAVE PREDICTIONS 
+        self.GetLinears(X["Observer"], y, "Observer Presence vs Survival Rate", figsize=(6.88, 3.63), logistic=True)       # OBSERVER VS SURVIVAL - REGRESSION - /  OG FULL EncodedDF TO ALIGN INDEX
+
+    def GetLinears(self, x_series, y_series, title, figsize=(4.0, 2.4), logistic=False): # PLOTTING UTILITY - CREATES AND STASHES REGRESSION-STYLE PLOT / FIG SIZE IS WIDTH IN INCHES, HEIGHT IN INCHES
         fig, ax = plt.subplots()
         fig.set_size_inches(figsize[0], figsize[1])
         try:
