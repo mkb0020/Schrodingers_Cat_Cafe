@@ -21,7 +21,7 @@ def GetNewCatData(RowQTY, Initials): #ROW QTY AND INITIALS WILL ULTIMATELY COME 
     DecayRate = np.round(np.random.uniform(0.1, 0.9, size=n), 3) # RADIOACTIVE DECAY RATE / PROBABILITY OF POISON RELEASE MECHANISM TRIGGERING / 0.0 TO 1.0, HIGHER MEANS MORE LIKELY TO TRIGGER POISON
     Stability = np.round(np.random.normal(loc=0.6, scale=0.15, size=n), 3) # WAVEFUNCTION STABILITY / HOW STABLE THE CAT’S QUANTUM STATE IS / 0.0 TO 1.0, HIGHER = MORE STABLE
     Stability= np.clip(Stability, 0, 1)
-    Materials = ['Cardboard', 'Lead', 'Graphene', 'Velvet', 'Quantum Foam'] # BOX MATERIAL (CATEGORICAL) / CATEGORICAL: CARDBOARD, LEAD, GRAPHENE, ETC.
+    Materials = ['Cardboard', 'Lead', 'Graphene', 'Velvet', 'QuantumFoam'] # BOX MATERIAL (CATEGORICAL) / CATEGORICAL: CARDBOARD, LEAD, GRAPHENE, ETC.
 
     Material = np.random.choice(Materials, size=n)
 
