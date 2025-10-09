@@ -109,7 +109,7 @@ class PurrfectRegression:
 
         self.EncodedDF = EncodedDF
 
-    def GetScatters(self):
+    def GetScatters(self): #SCATTER PLOTS
         df = self.df.copy()
 
         def StashScatter(key, fig): # HELPER - CREATE AND STORE FIG 
@@ -190,7 +190,7 @@ class PurrfectRegression:
             fig.tight_layout()
             StashScatter("Observer Presence vs Survival Rate", fig)
 
-# --- HELPERS FOR MODEL FITTING
+    # --- HELPERS FOR MODEL FITTING
     def MoodFitting(self): # STORES MODEL UNDER KEY MOOD - LINEAR REGRESSION FOR ACTUAL MOOD USING BOX TEMP, DECAY RATE, PHOTON COUNT, STABILITY, AND ONE-HOT-ENCODED MATERIALS.  
         if "ActualMood" not in self.EncodedDF.columns:
             self.Models["Mood"] = None
