@@ -10,9 +10,6 @@ import tempfile
 import atexit
 
 
-
-
-
 class TipToe:
     # ---------------------------- STYLE DEFINITIONS ----------------------------
     PurpleyBlue = "4B1395"
@@ -45,91 +42,79 @@ class TipToe:
     SheThicc = Side(style="thick", color=Black)
     Double = Side(style="double", color=Black)
     DoubleBottom = Border(bottom=Double)
-
     # ---------------------------- WALK-IN CLOSET / STYLES / Named after Riff Raff Albums ----------------------------
-    PurpleIcon = {
+    PurpleIcon = { #BLUEISH-PURPLE BACKGROUND, BIG WHITE BOLLD FONT, CENTER ALIGNED, DOUBLE BOTTOM BORDER  + THICK SMALL RIGHT LEFT AND TOP BORDERS
         "font": BigBoldWhite,
         "alignment": Middle,
         "fill": PurpleFill,
         "border": Border(left=SheThicc, right=SheThicc, top=SheThicc, bottom=Double)
     }
-
-    PurpleIconChopped = {
+    PurpleIconChopped = { #BLUEISH-PURPLE BACKGROUND, WHITE BOLLD FONT, CENTER ALIGNED, DOUBLE BOTTOM BORDER  + SMALL RIGHT LEFT AND TOP BORDERS
         "font": BoldWhite,
         "alignment": Middle,
         "fill": PurpleFill,
         "border": Border(left=IttyBitty, right=IttyBitty, top=IttyBitty, bottom=Double)
     }
-
-    TheWhiteWest = {
+    TheWhiteWest = { #DARK GREY BACKGROUND, WHITE BOLLD FONT, CENTER ALIGNED, DOUBLE BOTTOM BORDER + SMALL RIGHT LEFT AND TOP BORDERS
         "font": BoldWhite,
         "alignment": Middle,
         "fill": GreyFill,
         "border": Border(left=IttyBitty, right=IttyBitty, top=IttyBitty, bottom=Double)
     }
-
-    TheWhiteWestChopped = {
+    TheWhiteWestChopped = { #DARK GREY BACKGROUND, WHITE BOLLD FONT, CENTER ALIGNED, DOUBLE BOTTOM BORDER ONLY
         "font": BoldWhite,
         "alignment": Middle,
         "fill": GreyFill,
         "border": Border(left=None, right=None, top=None, bottom=Double)
     }
-
-    CoolBlueJewels = {
+    CoolBlueJewels = { #LIGHT BLUE-GREY BACKGROUND, BLACK BOLLD FONT, LEFT ALIGNED, SMALL BORDERS
         "font": BoldBlack,
         "alignment": Lefty,
         "fill": BlueGreyFill,
         "border": Border(left=IttyBitty, right=IttyBitty, top=IttyBitty, bottom=IttyBitty)
     }
-
-    VanillaGorillaMids = {
+    VanillaGorillaMids = { #WHITE BACKGROUND, BLACK REGULAR FONT, CENTER ALIGNED, SMALL BORDERS
         "font": RegularBlack,
         "alignment": Middle,
         "fill": WhiteFill,
         "border": Border(left=IttyBitty, right=IttyBitty, top=IttyBitty, bottom=IttyBitty)
     }
-
-    VanillaGorillaLefts = {
+    VanillaGorillaLefts = { #WHITE BACKGROUND, BLACK REGULAR FONT, LEFT ALIGNED, SMALL BORDERS
         "font": RegularBlack,
         "alignment": Lefty,
         "fill": WhiteFill,
         "border": Border(left=IttyBitty, right=IttyBitty, top=IttyBitty, bottom=IttyBitty)
     }
-
-    PinkPython = {
+    PinkPython = { #LIGHT PINK BACKGROUND, BLACK REGULAR FONT, CENTER ALIGNED, SMALL BORDERS
         "font": RegularBlack,
         "alignment": Middle,
         "fill": LightPinkFill,
         "border": Border(left=IttyBitty, right=IttyBitty, top=IttyBitty, bottom=IttyBitty)
     }
-
-    AquaberryAquarius = {
+    AquaberryAquarius = { #LIGHT BLUE BACKGROUND, BLACK REGULAR FONT, CENTER ALIGNED, SMALL BORDERS
         "font": RegularBlack,
         "alignment": Middle,
         "fill": LightBlueFill,
         "border": Border(left=IttyBitty, right=IttyBitty, top=IttyBitty, bottom=IttyBitty)
     }
-
-    LilacLightning = {
+    LilacLightning = { #LIGHT PURPLE BACKGROUND, BLACK REGULAR FONT, CENTER ALIGNED, SMALL BORDERS
         "font": RegularBlack,
         "alignment": Middle,
         "fill": LightPurpleFill,
         "border": Border(left=IttyBitty, right=IttyBitty, top=IttyBitty, bottom=IttyBitty)
     }
-
-    TurquoiseTornado = {
+    TurquoiseTornado = { #LIGHT BLUE-GREY BACKGROUND, BLACK REGULAR FONT, CENTER ALIGNED, NO BORDERS
         "font": RegularBlack,
         "alignment": Middle,
         "fill": BlueGreyFill
     }
-
     # ---------------------------- INIT ----------------------------
     def __init__(self, wb, ws):
         self.wb = wb
         self.ws = ws
     # ---------------------------- HELPERS ----------------------------
     @staticmethod
-    def Flex(cell, font=None, alignment=None, fill=None, border=None):
+    def Flex(cell, font=None, alignment=None, fill=None, border=None): #APPLIES THE STYLE ABOVE TO CELLS
         if font:
             cell.font = font
         if alignment:
@@ -139,8 +124,7 @@ class TipToe:
         if border:
             cell.border = border
 
-    def Thicc(self, FirstRow, LastRow, FirstColumn, LastColumn):
-        """Apply a thick border around the given cell range."""
+    def Thicc(self, FirstRow, LastRow, FirstColumn, LastColumn): #OUTLINE / APPLIES THICK OUTSIDE BORDER TO A RANGE OF CELLS
         for row in self.ws.iter_rows(min_row=FirstRow, max_row=LastRow,
                                      min_col=FirstColumn, max_col=LastColumn):
             for cell in row:
@@ -155,34 +139,33 @@ class TipToe:
                     right = TipToe.SheThicc
                 cell.border = Border(left=left, right=right, top=top, bottom=bottom)
 
-    def ColorBackGround(self, FirstRow, LastRow, FirstColumn, LastColumn):
+    def ColorBackGround(self, FirstRow, LastRow, FirstColumn, LastColumn): #COLORS THE BACKGROUND - USED IN THE TABS WITH PLOTS
         """Apply background color behind the plots."""
         for row in self.ws.iter_rows(min_row=FirstRow, max_row=LastRow,
                                      min_col=FirstColumn, max_col=LastColumn):
             for cell in row:
                 cell.fill = TipToe.BlueGreyFill
 
-    def SetColumnWidths(self, ThiccColumns, ThiccWidth, SpacerColumns, SpacerWidth):
+    def SetColumnWidths(self, ThiccColumns, ThiccWidth, SpacerColumns, SpacerWidth): #SELF EXPLANITORY
         for col in ThiccColumns:
             self.ws.column_dimensions[col].width = ThiccWidth
         for col in SpacerColumns:
             self.ws.column_dimensions[col].width = SpacerWidth
 
-    def Title(self, FirstRow):
+    def Title(self, FirstRow): #APPLIES PURPLE ICON STYLE TO THE TITLE HEADER ON A TAB
         self.ws.row_dimensions[FirstRow].height = 25
         TitleRow = next(self.ws.iter_rows(min_row=FirstRow, max_row=FirstRow))
         for cell in TitleRow:
             TipToe.Flex(cell, **TipToe.PurpleIcon)
 
-    def SubHeader(self, Row=2):  # SCATTER AND RESULTS TABS
+    def SubHeader(self, Row=2):  # FOR SCATTER AND RESULTS TABS - UNDER THE TITLE CELL
         self.ws.row_dimensions[Row].height = 20
         SubHeaderRow = next(self.ws.iter_rows(min_row=Row, max_row=Row))
         for cell in SubHeaderRow:
             TipToe.Flex(cell, **TipToe.TheWhiteWestChopped)
 
-
     # ---------------------------- WORKBOOK STYLING ----------------------------
-    def InsightsDrip(self):
+    def InsightsDrip(self): #FIRST TAB - "INSIGHTS" - TITLE CELL = A1, CAT INSIGHTS SECTION = A3:E14, MODEL INSIGHTS = A16:A27
         FirstBorderRow = 1
         FirstColumn = 1
         LastRow = 27
@@ -202,7 +185,7 @@ class TipToe:
         self.Thicc(FirstFeatureRow, LastFeatureRow, FirstColumn, LastColumn)
         self.Thicc(FisrtMetricsRow, LastMetricsRow, FirstColumn, LastColumn)
         
-    def MetricsDrip(self):
+    def MetricsDrip(self): #FIRST TAB - INSIGHTS - APPLIES VANILLA GORILLA MIDS TO  THE COEFFICIENTS COLUMNS AND THE METRICS COLUMNS (B-D) WHILE TAKING THE SPACERS INTO ACCOUNT
         ws = self.ws
         FirstRow1 = 5
         LastRow1 = 15
@@ -218,7 +201,7 @@ class TipToe:
                 cell = self.ws.cell(row, col)
                 self.Flex(cell, **self.VanillaGorillaMids)
 
-    def MetricsDripChopped(self):
+    def MetricsDripChopped(self): #FIRST TAB - INSIGHTS - APPLIES VANILLA GORILLA LEFTS TO  THE INSIGHTS COLUMN (E) WHILE TAKING THE SPACERS INTO ACCOUNT
         ws = self.ws
         FirstRow1 = 5
         LastRow1 = 15
@@ -235,7 +218,7 @@ class TipToe:
                 cell = self.ws.cell(row, col)
                 self.Flex(cell, **self.VanillaGorillaLefts)
 
-    def DataDrip(self):
+    def DataDrip(self): #SECOND TAB - "DATA" - APPLIES COLUMN WIDTHS, STYLES HEADERS WITH PURPLE ICON CHOPPED, STYLES ROWS UNDER HEADERS WITH VANILLA GORILLA MIDS, AND APPLIES THICK OUTLINE
         ws = self.ws
         FirstBorderRow = 1
         FirstColumn = 1
@@ -257,7 +240,7 @@ class TipToe:
         self.SetColumnWidths(ThiccColumns, ThiccWidth, SpacerColumns, SpacerWidth)
         self.Thicc(FirstBorderRow, LastRow, FirstColumn, LastColumn)
 
-    def PlotsDrip(self):
+    def PlotsDrip(self): #THIRD - SIXTH TABS - SCATTER PLOTS AND LINEAR REGRESSION PLOTS - APPLIES COLUMN WIDTHS, STYLES TITLE WITH PURPLE ICON, APPLIES THICK OUTLINE, APPLIES BACKGROUND COLOR BEHIND PLOT IMAGES, AND STYLES SUB-HEADERS WITH WHITE WEST
         ws = self.ws
         PlotTabs = ["SCATTER PLOTS", "MOOD RESULTS" "SASS RESULTS", "SURVIVAL RESULTS"]
         for tab in PlotTabs:
@@ -308,7 +291,7 @@ class TipToe:
             self.Thicc(FirstBorderRow, LastRow, FirstColumn, LastColumn)
             self.ColorBackGround(FirstBGRow, LastRow, FirstColumn, LastColumn)
 
-    def Drip(self):
+    def Drip(self): #APPLY THE DRIP
         self.InsightsDrip()
         self.MetricsDrip()
         self.MetricsDripChopped()
@@ -332,9 +315,8 @@ class PurrfectWB:
         self.wb = openpyxl.Workbook()
         DefaultTab = self.wb.active # REMOVE DEFAULT TAB
         self.wb.remove(DefaultTab)
-
         self.sheets = ["INSIGHTS", "DATA", "SCATTER PLOTS", 
-                       "MOOD RESULTS", "SASS RESULTS", "SURVIVAL RESULTS"]
+                       "MOOD RESULTS", "SASS RESULTS", "SURVIVAL RESULTS"] #TABS
         self.ws = {}
         for name in self.sheets: # CREATE TABS
             self.ws[name] = self.wb.create_sheet(title=name)
@@ -343,18 +325,17 @@ class PurrfectWB:
         self.RegressionPlots = RegressionPlots
         self.Importances = Importances
         
-    def SAVE(self):
+    def SAVE(self): #SAVE AND REMOVE TEMPS
         self.wb.save(self.OutputPath)
         if hasattr(self.wb, "_image_streams"):
             self.wb._image_streams.clear()
 
-    def GetWS(self, name):
-        """Get a worksheet by name safely."""
+    def GetWS(self, name): #SAFELY GET A TAB BY NAME
         if name in self.ws:
             return self.ws[name]
         raise ValueError(f"Worksheet '{name}' not found in {self.OutputPath}")
     
-    def InsightsKitten(self, ws=None):
+    def InsightsKitten(self, ws=None): #INSIGHTS TAB - FILL IN BASIC INFO, APPLY STYLING, INSERT COEFFICIENTS
         InsightsWS = self.GetWS("INSIGHTS")
         InsightsWS["A1"] = "CAFÉ ANALYSIS" #TITLE
         InsightsWS.merge_cells("A1:E1")
@@ -378,13 +359,13 @@ class PurrfectWB:
             "WAVEFUNCTION STABILITY:", "ENTANGLEMENT INDEX:", "OBSERVER PRESENCE:",
             "CARDBOARD BOX:", "LEAD BOX:", "QUANTUM FOAM BOX:", "VELVET BOX:",
         ]
-        for i, label in enumerate(Features, start=5):
-            InsightsWS[f"A{i}"] = label
-            TipToe.Flex(InsightsWS[f"A{i}"], **TipToe.CoolBlueJewels)
+        for i, label in enumerate(Features, start=5): #FILL IN THE NAMES OF THE FEATURES A5:A14
+            InsightsWS[f"A{i}"] = label 
+            TipToe.Flex(InsightsWS[f"A{i}"], **TipToe.CoolBlueJewels) #STYLE FEATURES IN A5:A14
 
-        InsightsWS.merge_cells("A15:E15")
-        InsightsWS["A16"] = "MODEL INSIGHTS"
-        TipToe.Flex(InsightsWS["A16"], **TipToe.PurpleIconChopped)
+        InsightsWS.merge_cells("A15:E15") #SPACER
+        InsightsWS["A16"] = "MODEL INSIGHTS" #SECTION WITH METRICS ABOUT MODEL'S PERFORMANCE
+        TipToe.Flex(InsightsWS["A16"], **TipToe.PurpleIconChopped) #STYLE MODEL INSIGHTS SECTION TITLE
         InsightsWS.merge_cells("A16:E16")
 
         MetricLabels = [
@@ -399,11 +380,11 @@ class PurrfectWB:
             "F1:",
             "AUC:"
         ]
-        for i, metric in enumerate(MetricLabels, start=18):
+        for i, metric in enumerate(MetricLabels, start=18): #FILL IN THE NAMES OF THE METRICS IN A18:A27
             InsightsWS[f"A{i}"] = metric
-            TipToe.Flex(InsightsWS[f"A{i}"], **TipToe.CoolBlueJewels)
+            TipToe.Flex(InsightsWS[f"A{i}"], **TipToe.CoolBlueJewels) #STYLE THE METRICS
 
-        MetricHeaders = [
+        MetricHeaders = [ 
             ("A17", "METRIC"),
             ("B17", "MOOD"),
             ("C17", "SASS"),
@@ -412,14 +393,14 @@ class PurrfectWB:
         ]
         for col, text in MetricHeaders:
             InsightsWS[col] = text
-            TipToe.Flex(InsightsWS[col], **TipToe.TheWhiteWest)
+            TipToe.Flex(InsightsWS[col], **TipToe.TheWhiteWest) #STYLE THE METRICS IN B-D
 
-        Drip = TipToe(self.wb, InsightsWS)
+        Drip = TipToe(self.wb, InsightsWS) #APPLY DRIP
         Drip.MetricsDrip()
         Drip.InsightsDrip()
        
 
-    def GetCoefficientsAndMetrics(self, CoefficientsDF=None, MetricsDF=None):
+    def GetCoefficientsAndMetrics(self, CoefficientsDF=None, MetricsDF=None): #GRAB THE FEATURE IMPORTANCES AND THE MODEL PERFORMANCE METRICS
         ws = self.GetWS("INSIGHTS")
         if CoefficientsDF is not None:
             for i, row in CoefficientsDF.iterrows():
@@ -435,7 +416,7 @@ class PurrfectWB:
                 ws[f"E{rownum}"] = row["ModelInsights"]
         self.SAVE()
 
-    def CatWisdom(self, CoefficientsDF, MetricsDF):
+    def CatWisdom(self, CoefficientsDF, MetricsDF): #USE THE COEFFICIENTS AND METRICS TO GENERATE INSIGHTS ABOUT THE CATS AND THE MODEL
         MoodFeatures = ["BoxTemp", "DecayRate", "Photons", "Stability",
                         "Material_Cardboard", "Material_Lead", "Material_Velvet", "Material_QuantumFoam"]
         SassFeatures = ["BoxTemp", "Entanglement"]
@@ -544,8 +525,7 @@ class PurrfectWB:
         Drip.MetricsDripChopped()
         self.SAVE()
 
-
-    def DataKitten(self, ws=None):
+    def DataKitten(self, ws=None): #FILLS IN DATA TAB WITH THE INPUT DF AND STYLE IT
         ws = self.GetWS("DATA")
         DataTabHeaders = ["BOX\nTEMPERATURE\n(Celsius)", "RADIOACTIVE\nDECAY RATE", "PHOTON COUNT\n(PER MINUTE)", "WAVEFUNCTION\nSTABILITY", "ENTANGLEMENT\nINDEX", "OBSERVER\nPRESENT?", "BOX\nMATERIAL", "ACTUAL\nMOOD SCORE", "PREDICTED\nMOOD SCORE", "MOOD SCORE\nRESIDUAL", "ACTUAL\nSASS INDEX", "PREDICTED\nSASS INDEX", "SASS INDEX\nRESIDUAL", "ACTUAL\nSURVIVAL", "PREDICTED\nSURVIVAL", "SURVIVAL RATE\nRESIDUAL"] #Data tab headers in order
         for i, header in enumerate(DataTabHeaders, start=1): #PRETTY HEADERS
@@ -559,12 +539,9 @@ class PurrfectWB:
                 else:
                     GlamObserver = value
                 ws.cell(row=r, column=c, value=GlamObserver)
-        Drip = TipToe(self.wb, ws)
+        Drip = TipToe(self.wb, ws) 
         Drip.DataDrip()
         self.SAVE()
-
-
-
 
     def PlaceImage(self, ws, fig, AnchorCell, HeightIN, WidthIN): #SAFELY SAVES MATPLOTLIB AS TEMP PNG, INSERTS INTO APPROPRIATE TAB, HANDLES MISSING IMAGE ERRORS GRACEFULLY, DEFERS DELETION OF TEMPS UNTIL AFTER SAVE
         global atexit
@@ -588,12 +565,10 @@ class PurrfectWB:
             ws[AnchorCell] = f"Image Not Found ({e.__class__.__name__})"
             #print(f"[DEBUG] Inserted {TempPath}")
 
-
-
-    def PlaceScatter(self, ws, fig, AnchorCell, HeightIN, WidthIN):
+    def PlaceScatter(self, ws, fig, AnchorCell, HeightIN, WidthIN): #PLACE SCATTER PLOTS
         self.PlaceImage(ws, fig, AnchorCell, HeightIN, WidthIN)
 
-    def ScatterKitten(self, ws=None):
+    def ScatterKitten(self, ws=None): #FOR SCATTER PLOTS TAB
         ScatterWS = self.GetWS("SCATTER PLOTS")
         ScatterWS["A1"] = "SCATTER PLOTS"
         ScatterWS.merge_cells("A1:G1")
@@ -615,8 +590,7 @@ class PurrfectWB:
         Drip = TipToe(self.wb, ScatterWS)
         Drip.PlotsDrip()
         
-
-    def MoodResultsKitten(self, ws=None):
+    def MoodResultsKitten(self, ws=None): #FOR LINEAR REGRESSION PICS FOR MOOD SCORE
         MoodWS = self.wb["MOOD RESULTS"]
         MoodWS["A1"] = "LINEAR REGRESSION"
         MoodWS.merge_cells("A1:I1")
@@ -674,9 +648,7 @@ class PurrfectWB:
         Drip = TipToe(self.wb, MoodWS)
         Drip.PlotsDrip()
         
-
-
-    def SassResultsKitten(self, ws=None):
+    def SassResultsKitten(self, ws=None): #FOR LINEAR REGRESSION PICS FOR SASS INDEX
         SassWS = self.wb["SASS RESULTS"]
         SassWS["A1"] = "LINEAR REGRESSION PLOTS"
         SassWS.merge_cells("A1:E1")
@@ -699,8 +671,7 @@ class PurrfectWB:
         Drip.PlotsDrip()
         self.SAVE()
 
-
-    def SurvivalResultsKitten(self, ws=None):
+    def SurvivalResultsKitten(self, ws=None): #FOR LINEAR REGRESSION PICS FOR SURVIVAL RATE
         SurvivialWS = self.wb["SURVIVAL RESULTS"]
         SurvivialWS["A1"] = "LINEAR REGRESSION PLOTS"
         SurvivialWS.merge_cells("A1:C1")
@@ -715,9 +686,6 @@ class PurrfectWB:
 
         Drip = TipToe(self.wb, SurvivialWS)
         Drip.PlotsDrip()
-        
-
-
         
     def ExcelLitter(self, OutputPath):
         self.InsightsKitten() 
