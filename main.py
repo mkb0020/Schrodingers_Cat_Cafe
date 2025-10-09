@@ -24,33 +24,36 @@
 # ○	    INFLUENCED BY OBSERVER PRESENCE ONLY
 
 
-
-
-
-
-import pandas as pd
-from datetime import datetime
-from tkinter import messagebox
-from RegressionCat import PurrfectRegression
-from ExcelCat import TipToe, PurrfectWB, CreateWB
-from DataGenerator import ScaleCatData
-
 #---------------------- FOR TESTING ----------------------
-InputCSV = "C:\\Users\\mkb00\\PROJECTS\\GitRepos\\Schrodingers_Cat_Cafe\\Test\\CafeData.csv"
-OutputPath = "C:\\Users\\mkb00\\PROJECTS\\GitRepos\\Schrodingers_Cat_Cafe\\Test\\CafeOutput.xlsx"
-MasterDataPath = "C:\\Users\\mkb00\\PROJECTS\\GitRepos\\Schrodingers_Cat_Cafe\\Test\\MasterData.csv"
+#InputCSV = "C:\\Users\\mkb00\\PROJECTS\\GitRepos\\Schrodingers_Cat_Cafe\\Test\\CafeData.csv"
+#OutputPath = "C:\\Users\\mkb00\\PROJECTS\\GitRepos\\Schrodingers_Cat_Cafe\\Test\\CafeOutput.xlsx"
+#MasterDataPath = "C:\\Users\\mkb00\\PROJECTS\\GitRepos\\Schrodingers_Cat_Cafe\\Test\\MasterData.csv"
+ 
+#UserName = "Mary Kathryn Barriault"
+#name_parts = UserName.split()
+#if len(name_parts) < 2:
+#    messagebox.showerror("Invalid Name", "Please enter at least a first and last name.")
+#first_initial = name_parts[0][0].upper()
+#last_initial = name_parts[-1][0].upper()
+#middle_initial = name_parts[1][0].upper() if len(name_parts) > 2 else "" # MIDDLE INITIAL = OPTIONAL
+#initials = first_initial + middle_initial + last_initial # COMBINE INITIALS
 
-UserName = "Mary Kathryn Barriault"
-name_parts = UserName.split()
-if len(name_parts) < 2:
-    messagebox.showerror("Invalid Name", "Please enter at least a first and last name.")
-first_initial = name_parts[0][0].upper()
-last_initial = name_parts[-1][0].upper()
-middle_initial = name_parts[1][0].upper() if len(name_parts) > 2 else "" # MIDDLE INITIAL = OPTIONAL
-initials = first_initial + middle_initial + last_initial # COMBINE INITIALS
+#TodaysDate = datetime.today().strftime("%Y%m%d")
 
-TodaysDate = datetime.today().strftime("%Y%m%d")
+#HistoryPath = "C:\Users\mkb00\PROJECTS\GitRepos\Schrodingers_Cat_Cafe\HistoricalCafeData\Historical_Cafe_Data.parquet"
+#CoefficientsHistoryPath = "C:\Users\mkb00\PROJECTS\GitRepos\Schrodingers_Cat_Cafe\HistoricalCafeData\CatCoefficients.parquet"
+#MetricsHistoryPath = "C:\Users\mkb00\PROJECTS\GitRepos\Schrodingers_Cat_Cafe\HistoricalCafeData\CatMetrics.parquet"
 
+# main.py
+from DataCat import GetNewCatData, ScaleCatData
+from RegressionCat import PurrfectRegression
+from ExcelCat import PurrfectWB
+from HistoryCat import CatArchive, RunHistoricalRegression, HistoryPath
+from tkinter import messagebox
+import pandas as pd
+import os
+from datetime import datetime
+from CatForms import CatCafeMenu
 
 def normalize_headers(df, AliasMap):
     RenameMap = {}
@@ -60,119 +63,40 @@ def normalize_headers(df, AliasMap):
                 RenameMap[alias] = standard_name
     return df.rename(columns=RenameMap)
 
-
-
-def StashCoefficients(CoefficientsDF, RegressionMeow): #HELPER FUNCTION
-    for idx, row in CoefficientsDF.iterrows():
+def StashCoefficients(CoefficientsDF, RegressionMeow, SavePath=None): #UPDATES COEFFICIENT DF WITH NEW FEATURES IMPORTANCES FROM REGRESSION RUN / BUILDS A TIDY LONG FORM VERSION FOR PLOTTING OR HISTORICAL TRACKING / OPTIONALLY SAVES BOTH WIDE AND LONG DATASETS TO PARQUETS
+    for idx, row in CoefficientsDF.iterrows(): #UPDATE WIDE FORM COEFFICIENTS
         feat = row["Feature"]
-        # Mood Coeffs
-        if feat in RegressionMeow.FeatureImportances.get("Mood", {}):
-            CoefficientsDF.at[idx, "MoodImportance"] = RegressionMeow.FeatureImportances["Mood"][feat]
-        # Sass Coeffs
-        if feat in RegressionMeow.FeatureImportances.get("Sass", {}):
-            CoefficientsDF.at[idx, "SassImportance"] = RegressionMeow.FeatureImportances["Sass"][feat]
-        # Survival Coeffs
-        if feat in RegressionMeow.FeatureImportances.get("Survival", {}):
-            CoefficientsDF.at[idx, "SurvivalImportance"] = RegressionMeow.FeatureImportances["Survival"][feat]
-    return CoefficientsDF
+        for target in ["Mood", "Sass", "Survival"]:
+            imp_dict = RegressionMeow.FeatureImportances.get(target, {})
+            if feat in imp_dict:
+                CoefficientsDF.at[idx, f"{target}Importance"] = imp_dict[feat]
 
+    MeltedRows = [] #BUILD LONG FORM DF FOR ANAYLYTICS OR PLOTTING
+    for target in ["Mood", "Sass", "Survival"]:
+        for _, row in CoefficientsDF.iterrows():
+            val = row.get(f"{target}Importance", None)
+            if pd.notna(val) and val not in ["N/A", None]:
+                try:
+                    val = float(val)
+                except Exception:
+                    continue
+                MeltedRows.append({
+                    "Target": target,
+                    "Feature": row["Feature"],
+                    "Coefficient": val
+                })
 
-def GetMetricsDF(RegressionMeow):
-    MetricsDF = pd.DataFrame({
-        "Metric": ["R2", "Intercept", "MAE", "MSE", "RMSE", "Accuracy", "Precision", "Recall", "F1", "AUC"],
-        "Mood": [
-            RegressionMeow.Metrics.get("Mood", {}).get("r2", "N/A"),
-            RegressionMeow.Metrics.get("Mood", {}).get("intercept", "N/A"),
-            RegressionMeow.Metrics.get("Mood", {}).get("mae", "N/A"),
-            RegressionMeow.Metrics.get("Mood", {}).get("mse", "N/A"),
-            RegressionMeow.Metrics.get("Mood", {}).get("rmse", "N/A"),
-            RegressionMeow.Metrics.get("Mood", {}).get("accuracy", "N/A"), # FOR SURVIVAL ONLY
-            RegressionMeow.Metrics.get("Mood", {}).get("precision", "N/A"), # FOR SURVIVAL ONLY
-            RegressionMeow.Metrics.get("Mood", {}).get("recall", "N/A"), # FOR SURVIVAL ONLY
-            RegressionMeow.Metrics.get("Mood", {}).get("f1", "N/A"), # FOR SURVIVAL ONLY
-            RegressionMeow.Metrics.get("Mood", {}).get("auc", "N/A"), # FOR SURVIVAL ONLY
-        ],
-        "Sass": [
-            RegressionMeow.Metrics.get("Sass", {}).get("r2", "N/A"),
-            RegressionMeow.Metrics.get("Sass", {}).get("intercept", "N/A"),
-            RegressionMeow.Metrics.get("Sass", {}).get("mae", "N/A"),
-            RegressionMeow.Metrics.get("Sass", {}).get("mse", "N/A"),
-            RegressionMeow.Metrics.get("Sass", {}).get("rmse", "N/A"),
-            RegressionMeow.Metrics.get("Sass", {}).get("accuracy", "N/A"),  # FOR SURVIVAL ONLY
-            RegressionMeow.Metrics.get("Sass", {}).get("precision", "N/A"), # FOR SURVIVAL ONLY 
-            RegressionMeow.Metrics.get("Sass", {}).get("recall", "N/A"), # FOR SURVIVAL ONLY
-            RegressionMeow.Metrics.get("Sass", {}).get("f1", "N/A"), # FOR SURVIVAL ONLY
-            RegressionMeow.Metrics.get("Sass", {}).get("auc", "N/A"), # FOR SURVIVAL ONLY
-        ],
-        "Survival": [
-            RegressionMeow.Metrics.get("Survival", {}).get("r2", "N/A"),
-            RegressionMeow.Metrics.get("Survival", {}).get("intercept", "N/A"),
-            RegressionMeow.Metrics.get("Survival", {}).get("mae", "N/A"),
-            RegressionMeow.Metrics.get("Survival", {}).get("mse", "N/A"),
-            RegressionMeow.Metrics.get("Survival", {}).get("rmse", "N/A"),
-            RegressionMeow.Metrics.get("Survival", {}).get("accuracy", "N/A"),  # FOR SURVIVAL ONLY
-            RegressionMeow.Metrics.get("Survival", {}).get("precision", "N/A"), # FOR SURVIVAL ONLY
-            RegressionMeow.Metrics.get("Survival", {}).get("recall", "N/A"), # FOR SURVIVAL ONLY
-            RegressionMeow.Metrics.get("Survival", {}).get("f1", "N/A"), # FOR SURVIVAL ONLY
-            RegressionMeow.Metrics.get("Survival", {}).get("auc", "N/A"), # FOR SURVIVAL ONLY
-        ],
-        "ModelInsights": [""]*10
-    })
-    return MetricsDF
+    MeltedDF = pd.DataFrame(MeltedRows)
 
-def main():
-    InputDF = pd.read_csv("CafeData.csv")
-    ScaledInputDF = ScaleCatData(InputDF)
-    InputRenameMap = { 
-            "Box Temperature (C)": "BoxTemp",
-            "Radioactive Decay Rate": "DecayRate",
-            "Photon Count per Minute": "Photons",
-            "Wavefunction Stability": "Stability",
-            "Quantum Entanglement Index": "Entanglement",
-            "Observer Presence": "Observer",
-            "Box Material": "Material",
-            "Actual Mood Score": "ActualMood",
-            "Actual Sass Index": "ActualSass",
-            "Actual Survival": "ActualSurvival"
-        }
-    InputDF = normalize_headers(InputDF, InputRenameMap)
-    CatDataHeaders= [
-            "BoxTemp",
-            "DecayRate",
-            "Photons",
-            "Stability",
-            "Entanglement",
-            "Observer",
-            "Material",
-            "ActualMood",
-            "PredictedMood",
-            "MoodEpsilon",
-            "ActualSass",
-            "PredictedSass",
-            "SassEpsilon",
-            "ActualSurvival",
-            "PredictedSurvival",
-            "SurvivalEpsilon"
-        ]
-    for col in CatDataHeaders: #MAKE SURE EXPECTED COLUMNS EXIST
-        if col not in InputDF.columns:
-            InputDF[col] = None 
-    InputDF = InputDF[CatDataHeaders] 
- 
-    CoefficientsDF = pd.DataFrame({ #INSIGHTS TAB - HEADERS WILL NOT BE INCLUDED
-        "Feature": ["BoxTemp", "DecayRate", "Photons", "Stability", "Entanglement", "Observer", "Material_Cardboard", "Material_Lead", "Material_QuantumFoam", "Material_Velvet"], 
-        "MoodImportance": [0, 0, 0, 0, "N/A", "N/A", 0, 0, 0, 0],
-        "SassImportance": [0, "N/A", "N/A", "N/A", 0, "N/A", "N/A", "N/A", "N/A", "N/A"],
-        "SurvivalImportance": ["N/A", "N/A", "N/A", "N/A", "N/A", 0, "N/A", "N/A", "N/A", "N/A"],
-        "FeatureInsights": [""]*10
-        })
-    
+    if SavePath: #OPTIONALLY SAVE TO PARQUET
+        try:
+            CoefficientsDF.to_parquet(SavePath, index=False)
+            print(f"🐾 Saved updated wide coefficients to: {SavePath}")
+        except Exception as e:
+            print(f"⚠️ Could not save coefficients to {SavePath}: {e}")
+    return CoefficientsDF, MeltedDF #COEFFICIENTS DF IS WIDE FORM TABLE DESIGNED FOR INSIGHTS TAB / MELTED DF IS LONG FORM FOR ANALYTICS, PLOTTING, AND TRACKING
 
-    RegressionMeow = PurrfectRegression(ScaledInputDF) #RUN REGRESSION MODEL ON THE SCALED DF
-    RegressionMeow.RunRegression()
-
-    CoefficientsDF = StashCoefficients(CoefficientsDF, RegressionMeow) #THIS IS FOR THE INSIGHTS TAB
-
+def CompleteDataCat(InputDF, RegressionMeow):
     InputDF["PredictedMood"] = RegressionMeow.CatPrediction #THIS IS TO FILL IN THE REST OF THE DATA TAB
     InputDF["MoodEpsilon"] = InputDF["ActualMood"] - InputDF["PredictedMood"]
     InputDF["PredictedSass"] = RegressionMeow.CatPrediction
@@ -184,8 +108,7 @@ def main():
     InputDF.loc[InputDF["Observer"] == 0, "ActualSurvival"] = "Unknown"
 
     InputDF["ActualSurvival"] = InputDF["ActualSurvival"].apply( #CONVERT TO NUMERIC IF OBSERVER IS PRESENT
-        lambda x: float(x) if str(x).replace(".", "", 1).isdigit() else "Unknown"
-    )
+                lambda x: float(x) if str(x).replace(".", "", 1).isdigit() else "Unknown")
 
     PredictedSurvival = RegressionMeow.Predictions.get("Survival") #PREDICTED SURVIVAL
     if PredictedSurvival is None:
@@ -209,72 +132,191 @@ def main():
 
     # --- Observer display cleanup ---
     InputDF["Observer"] = InputDF["Observer"].map({1: "YES", 0: "NO"})
+    return InputDF
 
+def GetMetricsDF(RegressionMeow, SavePath=None): # BUILDS AND OPTIONALLY SAVES A CLEAN METRICS DF FOR MOOD, SASS, AND SURVIVAL / RETURNS BOTH WIDE AND LONG FORM DFs
+    CatMetrics = ["R2", "Intercept", "MAE", "MSE", "RMSE", "Accuracy", "Precision", "Recall", "F1", "AUC"] #DEFINE METRICS IN CONSISTENT ORDER
 
-
-    ExcelMeow = PurrfectWB(InputDF, OutputPath, RegressionMeow.ScatterPlots, RegressionMeow.RegressionPlots, RegressionMeow.FeatureImportances)
-    ExcelMeow.DataKitten()
-    ExcelMeow.ExcelLitter(OutputPath)
-    ExcelMeow.InsightsKitten()
-
-
-    MetricsDF = GetMetricsDF(RegressionMeow) #GET METRICS INTO DF FOR INSIGHTS TAB
-    r2_mood = RegressionMeow.Metrics["Mood"]["r2"]
-    intercept_mood = RegressionMeow.Metrics["Mood"]["intercept"]
-    mae_mood = RegressionMeow.Metrics["Mood"]["mae"]
-    mse_mood = RegressionMeow.Metrics["Mood"]["mse"]
-    rmse_mood = RegressionMeow.Metrics["Mood"]["rmse"]
-
-    r2_sass = RegressionMeow.Metrics["Sass"]["r2"]
-    intercept_sass = RegressionMeow.Metrics["Sass"]["intercept"]
-    mae_sass = RegressionMeow.Metrics["Sass"]["mae"]
-    mse_sass = RegressionMeow.Metrics["Sass"]["mse"]
-    rmse_sass = RegressionMeow.Metrics["Sass"]["rmse"]
-
-    accuracy_survival = RegressionMeow.Metrics["Survival"]["accuracy"]
-    precision_survival = RegressionMeow.Metrics["Survival"]["precision"]
-    recall_survival = RegressionMeow.Metrics["Survival"]["recall"]
-    f1_survival = RegressionMeow.Metrics["Survival"]["f1"]
-    auc_survival = RegressionMeow.Metrics["Survival"]["auc"]
-
-    if intercept_mood > 0:
-        MoodDefault = "Quantum Bliss 😸✨"
-    else:
-        MoodDefault = "existential dread 😿"
-
-    if intercept_sass > 0:
-        SassDefault = "Less sass"
-    else:
-        SassDefault = "Sass Pants"
-
-
-    MetricsDF = pd.DataFrame({
-        "Metric": ["R2", "Beta", "MAE", "MSE", "RMSE", "Accuracy", "Precision", "Recall", "F1", "AUC"],
-        "Mood": [r2_mood, intercept_mood, mae_mood, mse_mood, rmse_mood,"N/A", "N/A", "N/A", "N/A", "N/A"],
-        "Sass": [r2_sass, intercept_sass, mae_sass, mse_sass, rmse_sass, "N/A", "N/A", "N/A", "N/A", "N/A"],
-        "Survival": ["N/A", "N/A", "N/A", "N/A", "N/A", accuracy_survival, precision_survival, recall_survival, f1_survival, auc_survival],
-        "ModelInsights": [
-            f"Model explains: {r2_mood * 100:.2f}% of mood / {r2_sass * 100:.2f}% of sass variation 💅",
-            f"Cats default to {MoodDefault} and {SassDefault}",
-            f"On average, predictions miss by {mae_mood:.2f} mood points and {mae_sass:.2f} Sass points 🐱🔮",
-            f"Model errors (squared) average {mse_mood:.2f} for mood and {mse_sass:.2f} for Sass",
-            f"Predictions are typically within ±{rmse_mood:.2f} of true cat mood and ±{rmse_sass:.2f} of true cat sass 😻✅",
-            f"Survival Accuracy: {accuracy_survival}",
-            f"Survival Precision: {precision_survival}",
-            f"Survival Recall: {recall_survival}",
-            f"Survival F1: {f1_survival}",
-            f"Survival auc: {auc_survival}"
-        ]
+    MetricsDF = pd.DataFrame({ # 🧮  BUILD WIDE METRICS DF
+        "Metric": CatMetrics,
+        "Mood": [RegressionMeow.Metrics.get("Mood", {}).get(key.lower(), "N/A") for key in CatMetrics],
+        "Sass": [RegressionMeow.Metrics.get("Sass", {}).get(key.lower(), "N/A") for key in CatMetrics],
+        "Survival": [RegressionMeow.Metrics.get("Survival", {}).get(key.lower(), "N/A") for key in CatMetrics],
+        "ModelInsights": [""] * len(CatMetrics)
     })
+    for col in ["Mood", "Sass", "Survival"]: #🧹 CLEAN NUMERIC VALUES(CONVERT IF POSSIBLE)
+        MetricsDF[col] = pd.to_numeric(MetricsDF[col], errors="coerce").fillna(0)
+    MeltedRows = [] # 🧾 BUILD LONG FOR ANALYSIS AND PLOTTING
+    for _, row in MetricsDF.iterrows():
+        for target in ["Mood", "Sass", "Survival"]:
+            MeltedRows.append({
+                "Target": target,
+                "Metric": row["Metric"],
+                "Value": row[target]
+            })
+    MeltedDF = pd.DataFrame(MeltedRows)
 
+    if SavePath: # 💾 OPTIONALLY SAVE WIDE FOR PARQUET
+        try:
+            MetricsDF.to_parquet(SavePath, index=False)
+            print(f"📊 Saved updated metrics to: {SavePath}")
+        except Exception as e:
+            print(f"⚠️ Could not save metrics to {SavePath}: {e}")
+    return MetricsDF, MeltedDF
 
+def GenerateNewData(UserName, RowQTY):#CREATES A CSV FILE WITH  'RANDOMLY' GENERATED DATA AND RETURNS A DF AND CSV PATH
+    Initials = "".join([p[0].upper() for p in UserName.split() if p])
+    df, CSVName = GetNewCatData(int(RowQTY), Initials)
+    return df, CSVName
 
+def AnalyzeNewData(InputCSV, OutputPath, HistoryPath, CoefficientsHistoryPath, MetricsHistoryPath, IncludeHistory=False): #RUNS REGRESSION ON NEW DATA, SAVES TO EXCEL, UPDATES THE HISTORICAL DATA FILE / USES HISTORICAL DATA IF USER CHECKS YES ON THE USER FORM
+    try:
+        InputDF = pd.read_csv(InputCSV)    
+        ScaledDF = ScaleCatData(InputDF) #SCALES THE DATA SO IT WILL PLAY NICELY WITH REGRESSION MODEL
+        InputRenameMap = { 
+            "Box Temperature (C)": "BoxTemp",
+            "Radioactive Decay Rate": "DecayRate",
+            "Photon Count per Minute": "Photons",
+           "Wavefunction Stability": "Stability",
+            "Quantum Entanglement Index": "Entanglement",
+           "Observer Presence": "Observer",
+          "Box Material": "Material",
+            "Actual Mood Score": "ActualMood",
+            "Actual Sass Index": "ActualSass",
+            "Actual Survival": "ActualSurvival"
+        }
 
+        InputDF = normalize_headers(InputDF, InputRenameMap)
+        CatDataHeaders= [
+            "BoxTemp",
+            "DecayRate",
+            "Photons",
+            "Stability",
+            "Entanglement",
+            "Observer",
+            "Material",
+            "ActualMood",
+            "PredictedMood",
+            "MoodEpsilon",
+            "ActualSass",
+            "PredictedSass",
+            "SassEpsilon",
+            "ActualSurvival",
+            "PredictedSurvival",
+            "SurvivalEpsilon"
+            ]
+        for col in CatDataHeaders: #MAKE SURE EXPECTED COLUMNS EXIST
+            if col not in InputDF.columns:
+                InputDF[col] = None 
+        InputDF = InputDF[CatDataHeaders] 
 
-    ExcelMeow.GetCoefficientsAndMetrics(CoefficientsDF, MetricsDF)
-    ExcelMeow.CatWisdom(CoefficientsDF, MetricsDF)
+        if IncludeHistory: #LOAD HISTORICAL DATA
+            if os.path.exists(HistoryPath):
+                HistoricalDF = pd.read_parquet(HistoryPath)
+            else:
+                HistoricalDF = pd.DataFrame(columns=CatDataHeaders)
+            CombinedDF = pd.concat([HistoricalDF, InputDF], ignore_index=True) #COMBINE HISTORICAL DATA WITH NEW DATA
+            ScaledDF = ScaleCatData(CombinedDF) #SCALE DATA
+            RegressionMeow = PurrfectRegression(ScaledDF) #RUN REGRESSION ON HISTORICAL DATA AND NEW DATA
+            RegressionMeow.RunRegression()
+            CombinedDF.to_parquet(HistoryPath, index=False) # UPDATE HISTORICAL PARQUET WITH APPENDED ROWS
+            ReportDF = CombinedDF #OUTPUT DF
+        else: #ONLY NEW DATASET
+            ScaledDF = ScaleCatData(InputDF) #SCALE DATA
+            RegressionMeow = PurrfectRegression(ScaledDF) #RUN REGRESSION ON NEW DATA ONLY
+            RegressionMeow.RunRegression()
+            ReportDF = InputDF #OUTPUT DF
 
+        CoefficientsDF = pd.DataFrame({ # BLANK DF TO HOUSE COEFFICIENTS FOR INSIGHTS TAB - HEADERS WILL NOT BE INCLUDED
+            "Feature": ["BoxTemp", "DecayRate", "Photons", "Stability", "Entanglement", "Observer", "Material_Cardboard", "Material_Lead", "Material_QuantumFoam", "Material_Velvet"], 
+            "MoodImportance": [0, 0, 0, 0, "N/A", "N/A", 0, 0, 0, 0],
+            "SassImportance": [0, "N/A", "N/A", "N/A", 0, "N/A", "N/A", "N/A", "N/A", "N/A"],
+            "SurvivalImportance": ["N/A", "N/A", "N/A", "N/A", "N/A", 0, "N/A", "N/A", "N/A", "N/A"],
+            "FeatureInsights": [""]*10
+            })
+        CoefficientsDF, _ = StashCoefficients(CoefficientsDF, RegressionMeow)
+        ReportDF = CompleteDataCat(ReportDF, RegressionMeow) #FOR EXCEL CAT
+        # CREATE EXCEL REPORT
+        ExcelMeow = PurrfectWB(ReportDF, OutputPath, RegressionMeow.ScatterPlots, RegressionMeow.RegressionPlots, RegressionMeow.FeatureImportances)
+        ExcelMeow.DataKitten()
+        ExcelMeow.ExcelLitter(OutputPath)
+        ExcelMeow.InsightsKitten()
 
+        MetricsDF, _ = GetMetricsDF(RegressionMeow) #GET THE R2, INTERCEPT, MAE, MSE, RMSE, ACCURACY, PRECISION, RECALL, F1, AND AUC
+        ExcelMeow.GetCoefficientsAndMetrics(CoefficientsDF, MetricsDF) # ADD METRICS TO EXCEL REPORT
+        ExcelMeow.CatWisdom(CoefficientsDF, MetricsDF) # ADD INTERPRETATIONS TO INSIGHTS COLUMN IN INSIGHTS TAB
+        return OutputPath
+    except Exception as e:
+        messagebox.showerror("FAIL", f"Something went wrong analyzing new data:\n{e}")
+        raise
+  
+  #*************** VIEW HISTORICAL DATA IS BROKEN 10/9/2025 ******************
+def ViewHistoricalModel(HistoryPath, CoefficientsHistoryPath, MetricsHistoryPath): #RUNS REGRESSION ON HISTORICAL DATA, UPDATES COEFFCIENTS AND METRICS PARQUETS, GENERATES EXCEL REPORT WITH TIMESTAMP FOR VIEWING
+    import os
+    from tkinter import messagebox
+    from HistoryCat import RunHistoricalRegression
+
+    if not os.path.exists(HistoryPath): #MAKE SURE HISTROICAL FILE EXISTS
+        messagebox.showerror("Missing Data", f"No historical data file found at:\n{HistoryPath}")
+        return
+
+    MissingFiles = [] #CHECK OPTIONAL SUPPORTING PARQUETS
+    for PatheLabel, path in {
+        "Coefficients": CoefficientsHistoryPath,
+        "Metrics": MetricsHistoryPath
+    }.items():
+        if not os.path.exists(path):
+            MissingFiles.append(f"{PatheLabel} Parquet:\n{path}")
+
+    if MissingFiles:
+        WarningMessage = "\n\n".join(MissingFiles)
+        messagebox.showwarning("Missing Supporting Files",
+            f"Some supporting Parquet files were not found:\n\n{WarningMessage}\n\n"
+            f"They will be created automatically if possible.")
+
+    try: #RUN HISTORICAL REGRESSION
+        ResultsPath = RunHistoricalRegression(HistoryPath, CoefficientsHistoryPath, MetricsHistoryPath)
+        messagebox.showinfo(
+            "Purrfect Historical Regression!",
+            f"Regression on historical data is meow complete.\n"
+            f"You can meow view the results here:\n{ResultsPath}"
+        )
+    except Exception as e:
+        messagebox.showerror("Cat-tastrophe!", f"Something went wrong running the historical model:\n\n{e}")
+  
+#*************** PREDICT DINING EXPERIENCE IS BROKEN 10/9/2025 ******************
+def PredictDiningExperience(FeaturesDictionary): #TAKES A DISCTONARY OF INPUT FEATURES, LOADS HISTORICAL MODEL, AND RETURNS PREDICTED MOOD, SASS, AND SURVIVAL
+    df = pd.read_csv(HistoryPath) #LOAD HISTORICAL DATA INTO A DATAFRAME
+    RegressionMeow = PurrfectRegression(df) #RUN REGRESSION ON HISTORICAL DATA
+    RegressionMeow.RunRegression()
+
+    InputDF = pd.DataFrame([FeaturesDictionary]) #BUILD A SINGLE-ROW DATAFRAME
+
+    MoodModel = RegressionMeow.Models.get("Mood") #MAKE PREDICTIONS USING THE TRAINED MODELS
+    SassModel = RegressionMeow.Models.get("Sass")
+    SurvivalModel = RegressionMeow.Models.get("Survival")
+
+    CatPredictions = {
+        "Mood": float(MoodModel.predict(InputDF[["BoxTemp", "DecayRate", "Photons", "Stability",
+                                                   "Material_Cardboard", "Material_Lead",
+                                                   "Material_QuantumFoam", "Material_Velvet"]])[0])
+                 if MoodModel else None,
+        "Sass": float(SassModel.predict(InputDF[["BoxTemp", "Entanglement"]])[0])
+                 if SassModel else None,
+        "Survival": float(SurvivalModel.predict_proba(InputDF[["Observer"]])[:, 1][0])
+                 if SurvivalModel else None,
+    }
+    return CatPredictions
+
+def main():
+    import tkinter as tk
+    from CatForms import UploadForm
+    from HistoryCat import HistoryPath
+    CoefficientsHistoryPath = HistoryPath.replace("Historical_Cafe_Data.parquet", "CatCoefficients.parquet") # 🧾 HISTORICAL PATH FOR COEFFICIENTS
+    MetricsHistoryPath = HistoryPath.replace("Historical_Cafe_Data.parquet", "CatMetrics.parquet") # 🧾 HISTORICAL PATH FOR METRICS
+
+    app = CatCafeMenu() # OPEN MENU
+    app.mainloop()
 
 if __name__ == "__main__":
     main()
