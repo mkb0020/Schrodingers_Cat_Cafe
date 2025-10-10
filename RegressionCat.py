@@ -6,8 +6,6 @@ from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score, accuracy_score
 from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score
 
-
-
 class PurrfectRegression:
     def __init__(self, df):
         self.df = df.copy()
