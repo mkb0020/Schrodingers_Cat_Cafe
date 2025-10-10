@@ -6,6 +6,7 @@ from datetime import datetime
 from tkinter import messagebox
 from RegressionCat import PurrfectRegression
 from ExcelCat import PurrfectWB
+import numpy as np
 
 
 HistoryPath = r"C:\Users\mkb00\PROJECTS\GitRepos\Schrodingers_Cat_Cafe\HistoricalCafeData\Historical_Cafe_Data.parquet"
@@ -33,7 +34,7 @@ def CatArchive(NewDF, HistoryPath): #LOAD NEW CAFE FILE (with predictions) TO A 
     return HistoryPath
 
 def RunHistoricalRegression(HistoryPath, CoefficientsHistoryPath, MetricsHistoryPath):  #LOADS HISTORICAL PARQUET FILE, RUNS REGRESSION USING PURRFECT REGRESSION, OVERWRITES THE SAME PARQUET WITH NEW PREDICTIONS, UPDATES THE COEFFICIENTS AND METRICS PARQUET FILES, AND GENERATES A NEW EXCEL REPORT
-    from main import StashCoefficients, GetMetricsDF
+    from main import StashCoefficients, GetMetricsDF, GetSurvivalEpsilon, SafetyCat_Subtract
 
     if not os.path.exists(HistoryPath): #MAKE SURE HISTORY FILE EXISTS
         messagebox.showerror("MISSING CAT", f"Cannot find historical data right meow:\n{HistoryPath}")
@@ -57,20 +58,55 @@ def RunHistoricalRegression(HistoryPath, CoefficientsHistoryPath, MetricsHistory
         df["PredictedSass"] = CatRegression.Predictions.get("Sass", pd.Series([None] * len(df)))
         df["PredictedSurvival"] = CatRegression.Predictions.get("Survival", pd.Series([None] * len(df)))
          # CALCULATE RESIDUALS (WITH NAN SAFETY)
-        df["MoodEpsilon"] = df["ActualMood"] - df["PredictedMood"]
-        df["SassEpsilon"] = df["ActualSass"] - df["PredictedSass"]
-        df["SurvivalEpsilon"] = df["ActualSurvival"] - df["PredictedSurvival"]
-        df.fillna(0, inplace=True)
+        df["MoodEpsilon"] = df.apply(lambda r: SafetyCat_Subtract(r["ActualMood"], r["PredictedMood"]), axis=1)
+        df["SassEpsilon"] = df.apply(lambda r: SafetyCat_Subtract(r["ActualSass"], r["PredictedSass"]), axis=1)
 
-        df.to_parquet(HistoryPath, index=False) # ✅ OVERWRITE THE OLD VERSION
+# --- Survival cleanup ---
+        def normalize_actual_survival(x, obs):
+            if obs == 0:
+                return "Unknown"
+            try:
+                if x is None or (isinstance(x, str) and x.strip() == ""):
+                    return "Unknown"
+                return float(x)
+            except Exception:
+                return "Unknown"
+
+        df["Observer"] = pd.to_numeric(df["Observer"], errors="coerce").fillna(0).astype(int)
+        df["ActualSurvival"] = df.apply(
+            lambda r: normalize_actual_survival(r.get("ActualSurvival"), r.get("Observer")), axis=1
+        )
+        df["PredictedSurvival"] = df["PredictedSurvival"].astype("object")
+        df.loc[df["Observer"] == 0, "PredictedSurvival"] = "Unknown"
+
+
+
+        df["SurvivalEpsilon"] = df.apply(GetSurvivalEpsilon, axis=1).astype("object")
+
+        # Fill NaNs safely (don’t overwrite Unknown)
+        df = df.replace({np.nan: None})
+
+        # Overwrite parquet
+        df.to_parquet(HistoryPath, index=False)
         print(f"[HistoryCat] Historical regression complete. Updated {HistoryPath}")
 
-        CoefficientsDF, MeltedCoeffs = StashCoefficients(CoefficientsDF, CatRegression, CoefficientsHistoryPath) # 🧩 UPDATE COEFFICIENT PARQUET
-        MetricsDF, MeltedMetrics = GetMetricsDF(CatRegression, MetricsHistoryPath) # 🧩 UPDATE METRIC PARQUET
-        print(f"[HistoryCat] Updated {CoefficientsHistoryPath} and {MetricsHistoryPath}")
-        TimeStamp = datetime.now().strftime("%Y%m%d_%H%M%S") #TIME STAMP FOR FILE NAME
-        ReportPath = HistoryPath.replace(".parquet", f"_Report_{TimeStamp}.xlsx") # 🧁 CREATE NEW EXCEL REPORT / NOT OVERWRITING PARQUET WITH EXCEL DOC
-        HistoryMeow = PurrfectWB(df, ReportPath, CatRegression.ScatterPlots, CatRegression.RegressionPlots, CatRegression.FeatureImportances) #EXCEL CAT MAGIC
+        # Update coefficients + metrics
+        if os.path.exists(CoefficientsHistoryPath):
+            CoefficientsDF = pd.read_parquet(CoefficientsHistoryPath)
+        else:
+            CoefficientsDF = pd.DataFrame(columns=["Feature", "MoodImportance", "SassImportance", "SurvivalImportance", "FeatureInsights"])
+        CoefficientsDF, MeltedCoeffs = StashCoefficients(CoefficientsDF, CatRegression, CoefficientsHistoryPath)
+
+        if os.path.exists(MetricsHistoryPath):
+            MetricsDF = pd.read_parquet(MetricsHistoryPath)
+        else:
+            MetricsDF = pd.DataFrame(columns=["Metric", "Mood", "Sass", "Survival", "ModelInsights"])
+        MetricsDF, MeltedMetrics = GetMetricsDF(CatRegression, MetricsHistoryPath)
+
+        # Excel report
+        TimeStamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        ReportPath = HistoryPath.replace(".parquet", f"_Report_{TimeStamp}.xlsx")
+        HistoryMeow = PurrfectWB(df, ReportPath, CatRegression.ScatterPlots, CatRegression.RegressionPlots, CatRegression.FeatureImportances)
         HistoryMeow.DataKitten()
         HistoryMeow.ScatterKitten()
         HistoryMeow.MoodResultsKitten()
@@ -79,6 +115,7 @@ def RunHistoricalRegression(HistoryPath, CoefficientsHistoryPath, MetricsHistory
 
         print(f"[HistoryCat] Excel report created: {ReportPath}")
         return ReportPath
+
     except Exception as e:
         messagebox.showerror("FAIL", f"Cannot run regression right meow:\n{e}")
         raise
