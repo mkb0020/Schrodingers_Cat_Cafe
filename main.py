@@ -54,6 +54,8 @@ import pandas as pd
 import os
 from datetime import datetime
 from CatForms import CatCafeMenu
+import sys
+import numpy as np
 
 def normalize_headers(df, AliasMap):
     RenameMap = {}
@@ -96,43 +98,73 @@ def StashCoefficients(CoefficientsDF, RegressionMeow, SavePath=None): #UPDATES C
             print(f"⚠️ Could not save coefficients to {SavePath}: {e}")
     return CoefficientsDF, MeltedDF #COEFFICIENTS DF IS WIDE FORM TABLE DESIGNED FOR INSIGHTS TAB / MELTED DF IS LONG FORM FOR ANALYTICS, PLOTTING, AND TRACKING
 
+
+def GetSurvivalEpsilon(row):
+    # Observer missing? -> Unknown
+    if row.get("Observer") in [0, "NO", None]:
+        return "Unknown"
+    
+    # Missing or "Unknown" survival values? -> Unknown
+    if row.get("PredictedSurvival") in [None, "Unknown"] or row.get("ActualSurvival") in [None, "Unknown"]:
+        return "Unknown"
+    
+    try:
+        return float(row["ActualSurvival"]) - float(row["PredictedSurvival"])
+    except (ValueError, TypeError):
+        return "Unknown"
+
+
+
 def CompleteDataCat(InputDF, RegressionMeow):
-    InputDF["PredictedMood"] = RegressionMeow.CatPrediction #THIS IS TO FILL IN THE REST OF THE DATA TAB
-    InputDF["MoodEpsilon"] = InputDF["ActualMood"] - InputDF["PredictedMood"]
-    InputDF["PredictedSass"] = RegressionMeow.CatPrediction
-    InputDF["SassEpsilon"] = InputDF["ActualSass"] - InputDF["PredictedSass"]
+    InputDF["PredictedMood"] = RegressionMeow.CatPrediction #MOOD PREDICTIONS
+    InputDF["MoodEpsilon"] = InputDF.apply(lambda r: SafetyCat_Subtract(r["ActualMood"], r["PredictedMood"]), axis=1) #SAFE SUBTRACT
 
-    InputDF["Observer"] = pd.to_numeric(InputDF["Observer"], errors="coerce").fillna(0).astype(int) #CONVERT OBSERVER TO NUMERIC
+    InputDF["PredictedSass"] = RegressionMeow.CatPrediction #SASS PREDICTIONS
+    InputDF["SassEpsilon"] = InputDF.apply(lambda r: SafetyCat_Subtract(r["ActualSass"], r["PredictedSass"]), axis=1) #SAFE SUBTRACT
 
-    InputDF["ActualSurvival"] = InputDF["ActualSurvival"].replace({"": None, None: None}) #IF OBSERVER IS NOT PRESENT, SURVIVAL IS UNKNOWN
-    InputDF.loc[InputDF["Observer"] == 0, "ActualSurvival"] = "Unknown"
+    InputDF["Observer"] = pd.to_numeric(InputDF["Observer"], errors="coerce").fillna(0).astype(int) #SURVIVA CLEAN UP TO FIX TYPE ERRORS / NORMALIZE OBSERVER
 
-    InputDF["ActualSurvival"] = InputDF["ActualSurvival"].apply( #CONVERT TO NUMERIC IF OBSERVER IS PRESENT
-                lambda x: float(x) if str(x).replace(".", "", 1).isdigit() else "Unknown")
+    def JustBeNormal(x, obs): #NORMALIZE ACTUAL SURVIVAL
+        if obs == 0:
+            return "Unknown"
+        try:
+            if x is None or (isinstance(x, str) and x.strip() == ""):
+                return "Unknown"
+            return float(x)
+        except Exception:
+            return "Unknown"
+
+    InputDF["ActualSurvival"] = InputDF.apply(
+        lambda r: JustBeNormal(r.get("ActualSurvival"), r.get("Observer")),
+        axis=1
+    )
 
     PredictedSurvival = RegressionMeow.Predictions.get("Survival") #PREDICTED SURVIVAL
     if PredictedSurvival is None:
         PredictedSurvival = pd.Series([None] * len(InputDF), index=InputDF.index)
-    if not isinstance(PredictedSurvival, pd.Series):
+    elif not isinstance(PredictedSurvival, pd.Series):
         PredictedSurvival = pd.Series(PredictedSurvival, index=InputDF.index)
 
-    InputDF["PredictedSurvival"] = PredictedSurvival  # NUMERIC VALUE
-    InputDF["PredictedSurvival"] = InputDF["PredictedSurvival"].astype("object")  # TO ALLOW FOR STRINGS AND NUMBERS
-    InputDF.loc[InputDF["Observer"] == 0, "PredictedSurvival"] = "Unknown"
+    InputDF["PredictedSurvival"] = PredictedSurvival.astype("object")
+    InputDF.loc[InputDF["Observer"] == 0, "PredictedSurvival"] = "Unknown" #IF NO OBSERVER, OVERRIDE TO UNKNOWN
 
-    def GetSurvivalEpsilon(row): #SURVIVAL RESIDUAL
-        if row["Observer"] == 0 or row["PredictedSurvival"] == "Unknown" or row["ActualSurvival"] == "Unknown":
+    def SurvivalEpsilonMaths(row): #SURVIVAL RESIDUAL CALCS
+        if row["Observer"] == 0:
+            return "Unknown"
+        if row["ActualSurvival"] in [None, "Unknown"] or row["PredictedSurvival"] in [None, "Unknown"]:
             return "Unknown"
         try:
             return float(row["ActualSurvival"]) - float(row["PredictedSurvival"])
         except Exception:
             return "Unknown"
+    InputDF["SurvivalEpsilon"] = InputDF.apply(SurvivalEpsilonMaths, axis=1).astype("object")
 
-    InputDF["SurvivalEpsilon"] = InputDF.apply(GetSurvivalEpsilon, axis=1).astype("object")
+    InputDF["Observer"] = InputDF["Observer"].map({1: "YES", 0: "NO"}) #CLEAN OBSERVER FOR DISPLAY
 
-    # --- Observer display cleanup ---
-    InputDF["Observer"] = InputDF["Observer"].map({1: "YES", 0: "NO"})
     return InputDF
+
+
+ 
 
 def GetMetricsDF(RegressionMeow, SavePath=None): # BUILDS AND OPTIONALLY SAVES A CLEAN METRICS DF FOR MOOD, SASS, AND SURVIVAL / RETURNS BOTH WIDE AND LONG FORM DFs
     CatMetrics = ["R2", "Intercept", "MAE", "MSE", "RMSE", "Accuracy", "Precision", "Recall", "F1", "AUC"] #DEFINE METRICS IN CONSISTENT ORDER
@@ -163,6 +195,16 @@ def GetMetricsDF(RegressionMeow, SavePath=None): # BUILDS AND OPTIONALLY SAVES A
         except Exception as e:
             print(f"⚠️ Could not save metrics to {SavePath}: {e}")
     return MetricsDF, MeltedDF
+
+
+def SafetyCat_Subtract(CatA, CatB):
+    try:
+        if CatA is None or CatB is None:
+            return None
+        return CatA - CatB
+    except Exception:
+        return None
+
 
 def GenerateNewData(UserName, RowQTY):#CREATES A CSV FILE WITH  'RANDOMLY' GENERATED DATA AND RETURNS A DF AND CSV PATH
     Initials = "".join([p[0].upper() for p in UserName.split() if p])
@@ -216,13 +258,16 @@ def AnalyzeNewData(InputCSV, OutputPath, HistoryPath, CoefficientsHistoryPath, M
             else:
                 HistoricalDF = pd.DataFrame(columns=CatDataHeaders)
             CombinedDF = pd.concat([HistoricalDF, InputDF], ignore_index=True) #COMBINE HISTORICAL DATA WITH NEW DATA
+            CombinedDF = CombinedDF[CatDataHeaders] #FORCE COLUMN ORDER
             ScaledDF = ScaleCatData(CombinedDF) #SCALE DATA
+            print(ScaledDF)
             RegressionMeow = PurrfectRegression(ScaledDF) #RUN REGRESSION ON HISTORICAL DATA AND NEW DATA
             RegressionMeow.RunRegression()
             CombinedDF.to_parquet(HistoryPath, index=False) # UPDATE HISTORICAL PARQUET WITH APPENDED ROWS
             ReportDF = CombinedDF #OUTPUT DF
         else: #ONLY NEW DATASET
             ScaledDF = ScaleCatData(InputDF) #SCALE DATA
+            print(ScaledDF)
             RegressionMeow = PurrfectRegression(ScaledDF) #RUN REGRESSION ON NEW DATA ONLY
             RegressionMeow.RunRegression()
             ReportDF = InputDF #OUTPUT DF
@@ -236,8 +281,16 @@ def AnalyzeNewData(InputCSV, OutputPath, HistoryPath, CoefficientsHistoryPath, M
             })
         CoefficientsDF, _ = StashCoefficients(CoefficientsDF, RegressionMeow)
         ReportDF = CompleteDataCat(ReportDF, RegressionMeow) #FOR EXCEL CAT
+
+        ExcelDF = ReportDF.copy()
+        #ExcelDF["ActualSurvival"] = ExcelDF["ActualSurvival"].replace({"": None, None: None}) #IF OBSERVER IS NOT PRESENT, SURVIVAL IS UNKNOWN
+        #ExcelDF.loc[ExcelDF["Observer"] == 0, "ActualSurvival"] = "Unknown"
+
+        #ExcelDF["ActualSurvival"] = ExcelDF["ActualSurvival"].apply( #CONVERT TO NUMERIC IF OBSERVER IS PRESENT
+        #        lambda x: float(x) if str(x).replace(".", "", 1).isdigit() else "Unknown")
+
         # CREATE EXCEL REPORT
-        ExcelMeow = PurrfectWB(ReportDF, OutputPath, RegressionMeow.ScatterPlots, RegressionMeow.RegressionPlots, RegressionMeow.FeatureImportances)
+        ExcelMeow = PurrfectWB(ExcelDF, OutputPath, RegressionMeow.ScatterPlots, RegressionMeow.RegressionPlots, RegressionMeow.FeatureImportances)
         ExcelMeow.DataKitten()
         ExcelMeow.ExcelLitter(OutputPath)
         ExcelMeow.InsightsKitten()
@@ -245,6 +298,9 @@ def AnalyzeNewData(InputCSV, OutputPath, HistoryPath, CoefficientsHistoryPath, M
         MetricsDF, _ = GetMetricsDF(RegressionMeow) #GET THE R2, INTERCEPT, MAE, MSE, RMSE, ACCURACY, PRECISION, RECALL, F1, AND AUC
         ExcelMeow.GetCoefficientsAndMetrics(CoefficientsDF, MetricsDF) # ADD METRICS TO EXCEL REPORT
         ExcelMeow.CatWisdom(CoefficientsDF, MetricsDF) # ADD INTERPRETATIONS TO INSIGHTS COLUMN IN INSIGHTS TAB
+
+        print(ScaledDF)
+
         return OutputPath
     except Exception as e:
         messagebox.showerror("FAIL", f"Something went wrong analyzing new data:\n{e}")
@@ -286,27 +342,56 @@ def ViewHistoricalModel(HistoryPath, CoefficientsHistoryPath, MetricsHistoryPath
   
 #*************** PREDICT DINING EXPERIENCE IS BROKEN 10/9/2025 ******************
 def PredictDiningExperience(FeaturesDictionary): #TAKES A DISCTONARY OF INPUT FEATURES, LOADS HISTORICAL MODEL, AND RETURNS PREDICTED MOOD, SASS, AND SURVIVAL
-    df = pd.read_csv(HistoryPath) #LOAD HISTORICAL DATA INTO A DATAFRAME
+    df = pd.read_parquet(HistoryPath)  #LOAD HISTORICAL DATA INTO A DATAFRAME
+    CatDataHeaders = [
+        "BoxTemp", "DecayRate", "Photons", "Stability", "Entanglement", "Observer", "Material",
+        "ActualMood", "PredictedMood", "MoodEpsilon",
+        "ActualSass", "PredictedSass", "SassEpsilon",
+        "ActualSurvival", "PredictedSurvival", "SurvivalEpsilon"
+        ]
+    for col in CatDataHeaders: #MAKE SURE EXPECTED COLUMNS EXIST
+        if col not in df.columns:
+            df[col] = None 
+    df = df[CatDataHeaders] #REORDER DF COLUMNS
+
+
+
     RegressionMeow = PurrfectRegression(df) #RUN REGRESSION ON HISTORICAL DATA
     RegressionMeow.RunRegression()
 
     InputDF = pd.DataFrame([FeaturesDictionary]) #BUILD A SINGLE-ROW DATAFRAME
 
+
     MoodModel = RegressionMeow.Models.get("Mood") #MAKE PREDICTIONS USING THE TRAINED MODELS
     SassModel = RegressionMeow.Models.get("Sass")
     SurvivalModel = RegressionMeow.Models.get("Survival")
 
-    CatPredictions = {
-        "Mood": float(MoodModel.predict(InputDF[["BoxTemp", "DecayRate", "Photons", "Stability",
-                                                   "Material_Cardboard", "Material_Lead",
-                                                   "Material_QuantumFoam", "Material_Velvet"]])[0])
-                 if MoodModel else None,
-        "Sass": float(SassModel.predict(InputDF[["BoxTemp", "Entanglement"]])[0])
-                 if SassModel else None,
-        "Survival": float(SurvivalModel.predict_proba(InputDF[["Observer"]])[:, 1][0])
-                 if SurvivalModel else None,
-    }
+
+    CatPredictions = {} #USE ACTUAL FEATURE ORDER FROM EACH TRAINED MODEL
+    if MoodModel:
+        InputMood = InputDF.reindex(columns=MoodModel.feature_names_in_, fill_value=0)
+        CatPredictions["Mood"] = float(MoodModel.predict(InputMood)[0])
+    else:
+        CatPredictions["Mood"] = None
+
+    if SassModel:
+        InputSass = InputDF.reindex(columns=SassModel.feature_names_in_, fill_value=0)
+        CatPredictions["Sass"] = float(SassModel.predict(InputSass)[0])
+    else:
+        CatPredictions["Sass"] = None
+
+    if SurvivalModel:
+        InputSurvival = InputDF.reindex(columns=SurvivalModel.feature_names_in_, fill_value=0)
+        prob = SurvivalModel.predict_proba(InputSurvival)[:, 1][0]
+        CatPredictions["Survival"] = float(prob) if prob is not None else None #MAKE SURE VALUE IS NOT NONE
+    else:
+        CatPredictions["Survival"] = None
+
+
     return CatPredictions
+
+
+
 
 def main():
     import tkinter as tk
@@ -317,6 +402,7 @@ def main():
 
     app = CatCafeMenu() # OPEN MENU
     app.mainloop()
+    sys.exit()
 
 if __name__ == "__main__":
     main()
