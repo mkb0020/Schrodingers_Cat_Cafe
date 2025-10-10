@@ -106,7 +106,7 @@ def MakePredictionPopup(Daddy): # PLACEHOLDER - THIS WILL BE FILLED IN LATER WIT
 
     PredictionPopup.update_idletasks()
     RequiredWidth = max(360, PredictionPopup.winfo_reqwidth() + 20)
-    RequiredHeight = PredictionPopup.winfo_reqheight() + 20
+    RequiredHeight = PredictionPopup.winfo_reqheight() + 50
     OpenInCenter(PredictionPopup, RequiredWidth, RequiredHeight)
     PredictionPopup.grab_set()
     return PredictionPopup
@@ -323,8 +323,12 @@ class PredictForm(Toplevel): #THIS IS IF THE USER WOULD LIKE TO INPUT THE VALUES
     def __init__(self, master=None):
         super().__init__(master)
         self.title("Predict Dining Experience")
-        self.geometry("500x550")
+        self.geometry("600x800")
         self.resizable(False, False)
+        #self.update_idletasks()
+        #RequiredWidth = max(420, self.winfo_reqwidth() + 20)
+        #RequiredHeight = min(MaxHeight, self.winfo_reqheight() + 50)
+        #OpenInCenter(self, RequiredWidth, RequiredHeight)
 
         #BackgroundPath = r"C:\Users\mkb00\PROJECTS\GitRepos\Schrodingers_Cat_Cafe\Assets\CatCafeBG.png" #OPTIONAL BACKGROUN IMAGE - WILL ADD LATER
         #if os.path.exists(BackgroundPath):
@@ -355,7 +359,11 @@ class PredictForm(Toplevel): #THIS IS IF THE USER WOULD LIKE TO INPUT THE VALUES
         Scale(self, from_=0, to=100, orient=HORIZONTAL,
               label="Wavefunction Stability", variable=self.Stability).pack(pady=8)
 
-        
+        self.Material = StringVar(value="Cardboard")  # default
+        Label(self, text="Box Material", bg="#ffffff").pack(pady=5)
+        OptionMenu(self, self.Material, "Cardboard", "Lead", "QuantumFoam", "Velvet").pack(pady=5)
+
+
         self.Observer = BooleanVar(value=True) # 👁️ OBSERVER CHECKBOX 
         Checkbutton(self, text="Observer Present?", variable=self.Observer).pack(pady=5)
 
@@ -385,7 +393,11 @@ class PredictForm(Toplevel): #THIS IS IF THE USER WOULD LIKE TO INPUT THE VALUES
                 return "High"
         CatMood = CatBucket(MoodScore, 33, 67)
         CatSass = CatBucket(SassInex, 33, 67)
-        CatAliveState = "Alive" if SurvivalRate >= 0.5 else "NotAlive"
+        if SurvivalRate is None: #MAKE SURE SURVIVAL RATE IS NOT NONE
+            CatAliveState = "Unknown"
+        else:
+            CatAliveState = "Alive" if SurvivalRate >= 0.5 else "NotAlive"
+        
 
         CatKey = (CatMood, CatSass, CatAliveState)
         CatMap = { #ALL THE OUTCOMES AND INTERPRETATIONS - 18 COMBOS - (3 FOR MOOD x 3 FOR SASS x 2 FOR SURVIVAL)
@@ -444,15 +456,21 @@ class PredictForm(Toplevel): #THIS IS IF THE USER WOULD LIKE TO INPUT THE VALUES
             "BoxTemp": self.BoxTemp.get(),
             "DecayRate": self.DecayRate.get(),
             "Photons": self.Photons.get(),
-            "Entanglement": self.Entanglement.get(),
             "Stability": self.Stability.get(),
+            "Entanglement": self.Entanglement.get(),
             "Observer": int(self.Observer.get()),
         }
+        material = self.Material.get() #ADD ONE HOT ENCODED MATERIALS FROM THE DROP DOWN
+        for m in ["Cardboard", "Lead", "QuantumFoam", "Velvet"]:
+            InputFeatureValues[f"Material_{m}"] = 1 if material == m else 0
+        print(InputFeatureValues)
+
+
         try: #PREDICTION LOGIC
             PredictionResult = PredictDiningExperience(InputFeatureValues) #PREDICT DINING EXPERIENCE IS IN MAIN
-            PredictedMood = PredictionResult["CatMood"]
-            PredictedSass = PredictionResult["CatSass"]
-            PredictedSurvival = PredictionResult["CatAliveState"]
+            PredictedMood = PredictionResult["Mood"]
+            PredictedSass = PredictionResult["Sass"]
+            PredictedSurvival = PredictionResult["Survival"]
 
             CafeVerdict = self.RateDiningExperience(PredictedMood, PredictedSass, PredictedSurvival)
 
@@ -481,8 +499,10 @@ class ViewHistoryForm(BaseForm): #THIS IS IF THE USER WOULD LIKE TO VIEW A REPOR
         InputName = self.UserName.get().strip()  #CLICK SUBMIT - COLLECT USER'S NAME
 
         try:
-            from HistoryCat import HistoryPath
-            ResultsPath = ViewHistoricalModel(HistoryPath)
+            from HistoryCat import HistoryPath, CoefficientsHistoryPath, MetricsHistoryPath
+            CoefficientsHistoryPath = HistoryPath.replace("Historical_Cafe_Data.parquet", "CatCoefficients.parquet")
+            MetricsHistoryPath = HistoryPath.replace("Historical_Cafe_Data.parquet", "CatMetrics.parquet")
+            ResultsPath = ViewHistoricalModel(HistoryPath, CoefficientsHistoryPath, MetricsHistoryPath)
         except Exception as e:
             messagebox.showerror("FAIL", f"Cannot run regression right meow:\n{e}")
             return
